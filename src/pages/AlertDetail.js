@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Paper, Typography, Box, Chip } from '@mui/material';
+import { Paper, Typography, Box, Chip, Button, Stack } from '@mui/material';
 import BackButton from '../components/BackButton';
+import RichTextEditor from '../components/RichTextEditor';
 
 // Données mockées (comme dans Alerts.js)
 const mockAlerts = [
@@ -12,12 +13,45 @@ const mockAlerts = [
 export default function AlertDetail() {
   const { id } = useParams();
   const [alert, setAlert] = useState(null);
+  const [editedAlert, setEditedAlert] = useState({});
+  const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
     // Simule la récupération de l'alerte par ID
     const foundAlert = mockAlerts.find(a => a.id === parseInt(id));
-    setAlert(foundAlert);
+    if (foundAlert) {
+      setAlert(foundAlert);
+      setEditedAlert({ 
+        message: foundAlert.message || ''
+      });
+    }
   }, [id]);
+
+  // Vérifie si des modifications ont été faites
+  useEffect(() => {
+    if (!alert) return;
+    
+    const hasChanges = editedAlert.message !== alert.message;
+    setIsDirty(hasChanges);
+  }, [editedAlert, alert]);
+
+  const handleFieldChange = (fieldName, value) => {
+    setEditedAlert(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+  };
+
+  const handleSave = () => {
+    console.log('Sauvegarde de l\'alerte:', { ...alert, ...editedAlert });
+    
+    // Simule la sauvegarde
+    const updatedAlert = { ...alert, ...editedAlert };
+    setAlert(updatedAlert);
+    setIsDirty(false);
+    
+    alert('Alerte sauvegardée avec succès !');
+  };
 
   if (!alert) {
     return (
@@ -43,8 +77,8 @@ export default function AlertDetail() {
       
       <Paper sx={{ p: 3, border: '2px solid #ff9800', borderRadius: 2 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h4" component="h1" sx={{ display: 'flex', alignItems: 'center' }}>
-            🚨 Alerte
+          <Typography variant="h6" color="text.secondary" sx={{ display: 'flex', alignItems: 'center' }}>
+            🚨 Édition de l'alerte
           </Typography>
           <Chip 
             label={alert.status} 
@@ -63,16 +97,30 @@ export default function AlertDetail() {
           })}
         </Typography>
 
-        <Box 
-          sx={{ 
-            p: 2, 
-            backgroundColor: '#fff3e0', 
-            borderRadius: 1,
-            '& p': { mb: 2 }
-          }}
-        >
-          <div dangerouslySetInnerHTML={{ __html: alert.message }} />
-        </Box>
+        <Stack spacing={3}>
+          {/* Message d'alerte */}
+          <Box>
+            <Typography variant="subtitle1" gutterBottom>Message de l'alerte</Typography>
+            <RichTextEditor
+              value={editedAlert.message}
+              onChange={(content) => handleFieldChange('message', content)}
+            />
+          </Box>
+
+          {/* Bouton d'enregistrement */}
+          {isDirty && (
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 2 }}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleSave}
+                size="large"
+              >
+                Enregistrer les modifications
+              </Button>
+            </Box>
+          )}
+        </Stack>
       </Paper>
     </Box>
   );

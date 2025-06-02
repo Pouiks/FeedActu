@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Paper, Typography, Box, Chip } from '@mui/material';
+import { Paper, Typography, Box, Chip, Button, Stack } from '@mui/material';
 import BackButton from '../components/BackButton';
+import RichTextEditor from '../components/RichTextEditor';
 
 // Données mockées (comme dans DailyMessages.js)
 const mockDailyMessages = [
@@ -12,12 +13,45 @@ const mockDailyMessages = [
 export default function DailyMessageDetail() {
   const { id } = useParams();
   const [message, setMessage] = useState(null);
+  const [editedMessage, setEditedMessage] = useState({});
+  const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
     // Simule la récupération du message par ID
     const foundMessage = mockDailyMessages.find(m => m.id === parseInt(id));
-    setMessage(foundMessage);
+    if (foundMessage) {
+      setMessage(foundMessage);
+      setEditedMessage({ 
+        message: foundMessage.message || ''
+      });
+    }
   }, [id]);
+
+  // Vérifie si des modifications ont été faites
+  useEffect(() => {
+    if (!message) return;
+    
+    const hasChanges = editedMessage.message !== message.message;
+    setIsDirty(hasChanges);
+  }, [editedMessage, message]);
+
+  const handleFieldChange = (fieldName, value) => {
+    setEditedMessage(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+  };
+
+  const handleSave = () => {
+    console.log('Sauvegarde du message du jour:', { ...message, ...editedMessage });
+    
+    // Simule la sauvegarde
+    const updatedMessage = { ...message, ...editedMessage };
+    setMessage(updatedMessage);
+    setIsDirty(false);
+    
+    alert('Message du jour sauvegardé avec succès !');
+  };
 
   if (!message) {
     return (
@@ -43,8 +77,8 @@ export default function DailyMessageDetail() {
       
       <Paper sx={{ p: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h4" component="h1">
-            Message du jour
+          <Typography variant="h6" color="text.secondary">
+            Édition du message du jour
           </Typography>
           <Chip 
             label={message.status} 
@@ -63,9 +97,30 @@ export default function DailyMessageDetail() {
           })}
         </Typography>
 
-        <Box sx={{ '& p': { mb: 2 } }}>
-          <div dangerouslySetInnerHTML={{ __html: message.message }} />
-        </Box>
+        <Stack spacing={3}>
+          {/* Message */}
+          <Box>
+            <Typography variant="subtitle1" gutterBottom>Message</Typography>
+            <RichTextEditor
+              value={editedMessage.message}
+              onChange={(content) => handleFieldChange('message', content)}
+            />
+          </Box>
+
+          {/* Bouton d'enregistrement */}
+          {isDirty && (
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 2 }}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleSave}
+                size="large"
+              >
+                Enregistrer les modifications
+              </Button>
+            </Box>
+          )}
+        </Stack>
       </Paper>
     </Box>
   );

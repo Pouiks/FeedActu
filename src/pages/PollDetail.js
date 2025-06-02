@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Paper, Typography, Box, Chip, List, ListItem, ListItemText } from '@mui/material';
+import { Paper, Typography, Box, Chip, TextField, Button, Stack, IconButton } from '@mui/material';
+import { Add, Delete } from '@mui/icons-material';
 import BackButton from '../components/BackButton';
+import RichTextEditor from '../components/RichTextEditor';
 
 // Données mockées (comme dans Polls.js)
 const mockPolls = [
@@ -12,12 +14,75 @@ const mockPolls = [
 export default function PollDetail() {
   const { id } = useParams();
   const [poll, setPoll] = useState(null);
+  const [editedPoll, setEditedPoll] = useState({});
+  const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
     // Simule la récupération du sondage par ID
     const foundPoll = mockPolls.find(p => p.id === parseInt(id));
-    setPoll(foundPoll);
+    if (foundPoll) {
+      setPoll(foundPoll);
+      setEditedPoll({ 
+        question: foundPoll.question || '',
+        answers: [...(foundPoll.answers || [''])]
+      });
+    }
   }, [id]);
+
+  // Vérifie si des modifications ont été faites
+  useEffect(() => {
+    if (!poll) return;
+    
+    const hasChanges = 
+      editedPoll.question !== poll.question ||
+      JSON.stringify(editedPoll.answers) !== JSON.stringify(poll.answers);
+    
+    setIsDirty(hasChanges);
+  }, [editedPoll, poll]);
+
+  const handleFieldChange = (fieldName, value) => {
+    setEditedPoll(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+  };
+
+  const handleAnswerChange = (index, value) => {
+    const newAnswers = [...editedPoll.answers];
+    newAnswers[index] = value;
+    setEditedPoll(prev => ({
+      ...prev,
+      answers: newAnswers
+    }));
+  };
+
+  const addAnswer = () => {
+    setEditedPoll(prev => ({
+      ...prev,
+      answers: [...prev.answers, '']
+    }));
+  };
+
+  const removeAnswer = (index) => {
+    if (editedPoll.answers.length > 1) {
+      const newAnswers = editedPoll.answers.filter((_, i) => i !== index);
+      setEditedPoll(prev => ({
+        ...prev,
+        answers: newAnswers
+      }));
+    }
+  };
+
+  const handleSave = () => {
+    console.log('Sauvegarde du sondage:', { ...poll, ...editedPoll });
+    
+    // Simule la sauvegarde
+    const updatedPoll = { ...poll, ...editedPoll };
+    setPoll(updatedPoll);
+    setIsDirty(false);
+    
+    alert('Sondage sauvegardé avec succès !');
+  };
 
   if (!poll) {
     return (
@@ -43,8 +108,8 @@ export default function PollDetail() {
       
       <Paper sx={{ p: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h4" component="h1">
-            Sondage
+          <Typography variant="h6" color="text.secondary">
+            Édition du sondage
           </Typography>
           <Chip 
             label={poll.status} 
@@ -63,23 +128,61 @@ export default function PollDetail() {
           })}
         </Typography>
 
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h6" gutterBottom>Question :</Typography>
-          <div dangerouslySetInnerHTML={{ __html: poll.question }} />
-        </Box>
+        <Stack spacing={3}>
+          {/* Question */}
+          <Box>
+            <Typography variant="subtitle1" gutterBottom>Question du sondage</Typography>
+            <RichTextEditor
+              value={editedPoll.question}
+              onChange={(content) => handleFieldChange('question', content)}
+            />
+          </Box>
 
-        <Box>
-          <Typography variant="h6" gutterBottom>Réponses possibles :</Typography>
-          <List>
-            {poll.answers?.map((answer, index) => (
-              <ListItem key={index} sx={{ pl: 0 }}>
-                <ListItemText 
-                  primary={`${index + 1}. ${answer}`}
+          {/* Réponses */}
+          <Box>
+            <Typography variant="subtitle1" gutterBottom>Réponses possibles</Typography>
+            {editedPoll.answers?.map((answer, index) => (
+              <Box key={index} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <TextField
+                  label={`Réponse ${index + 1}`}
+                  value={answer}
+                  onChange={(e) => handleAnswerChange(index, e.target.value)}
+                  fullWidth
+                  sx={{ mr: 1 }}
                 />
-              </ListItem>
+                <IconButton 
+                  onClick={() => removeAnswer(index)}
+                  disabled={editedPoll.answers.length <= 1}
+                  color="error"
+                >
+                  <Delete />
+                </IconButton>
+              </Box>
             ))}
-          </List>
-        </Box>
+            <Button
+              startIcon={<Add />}
+              onClick={addAnswer}
+              variant="outlined"
+              sx={{ mt: 1 }}
+            >
+              Ajouter une réponse
+            </Button>
+          </Box>
+
+          {/* Bouton d'enregistrement */}
+          {isDirty && (
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 2 }}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleSave}
+                size="large"
+              >
+                Enregistrer les modifications
+              </Button>
+            </Box>
+          )}
+        </Stack>
       </Paper>
     </Box>
   );

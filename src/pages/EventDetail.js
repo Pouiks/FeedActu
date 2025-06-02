@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Paper, Typography, Box, Chip } from '@mui/material';
+import { Paper, Typography, Box, Chip, TextField, Button, Stack } from '@mui/material';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import BackButton from '../components/BackButton';
+import RichTextEditor from '../components/RichTextEditor';
 
 // Données mockées (comme dans Events.js)
 const mockEvents = [
@@ -12,12 +16,59 @@ const mockEvents = [
 export default function EventDetail() {
   const { id } = useParams();
   const [event, setEvent] = useState(null);
+  const [editedEvent, setEditedEvent] = useState({});
+  const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
     // Simule la récupération de l'événement par ID
     const foundEvent = mockEvents.find(e => e.id === parseInt(id));
-    setEvent(foundEvent);
+    if (foundEvent) {
+      setEvent(foundEvent);
+      setEditedEvent({ 
+        title: foundEvent.title || '',
+        eventDateTime: new Date(foundEvent.eventDateTime),
+        description: foundEvent.description || ''
+      });
+    }
   }, [id]);
+
+  // Vérifie si des modifications ont été faites
+  useEffect(() => {
+    if (!event) return;
+    
+    const hasChanges = 
+      editedEvent.title !== event.title ||
+      editedEvent.eventDateTime?.toISOString() !== new Date(event.eventDateTime).toISOString() ||
+      editedEvent.description !== event.description;
+    
+    setIsDirty(hasChanges);
+  }, [editedEvent, event]);
+
+  const handleFieldChange = (fieldName, value) => {
+    setEditedEvent(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+  };
+
+  const handleSave = () => {
+    console.log('Sauvegarde de l\'événement:', { 
+      ...event, 
+      ...editedEvent,
+      eventDateTime: editedEvent.eventDateTime.toISOString()
+    });
+    
+    // Simule la sauvegarde
+    const updatedEvent = { 
+      ...event, 
+      ...editedEvent,
+      eventDateTime: editedEvent.eventDateTime.toISOString()
+    };
+    setEvent(updatedEvent);
+    setIsDirty(false);
+    
+    alert('Événement sauvegardé avec succès !');
+  };
 
   if (!event) {
     return (
@@ -43,31 +94,14 @@ export default function EventDetail() {
       
       <Paper sx={{ p: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h4" component="h1">
-            {event.title}
+          <Typography variant="h6" color="text.secondary">
+            Édition de l'événement
           </Typography>
           <Chip 
             label={event.status} 
             color={getStatusColor(event.status)}
             variant="outlined"
           />
-        </Box>
-
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h6" color="primary">
-            📅 {new Date(event.eventDateTime).toLocaleDateString('fr-FR', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
-            })}
-          </Typography>
-          <Typography variant="h6" color="primary">
-            🕐 {new Date(event.eventDateTime).toLocaleTimeString('fr-FR', {
-              hour: '2-digit',
-              minute: '2-digit'
-            })}
-          </Typography>
         </Box>
 
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
@@ -80,12 +114,49 @@ export default function EventDetail() {
           })}
         </Typography>
 
-        {event.description && (
-          <Box sx={{ '& p': { mb: 2 } }}>
-            <Typography variant="h6" gutterBottom>Description :</Typography>
-            <div dangerouslySetInnerHTML={{ __html: event.description }} />
+        <Stack spacing={3}>
+          {/* Titre */}
+          <TextField
+            label="Nom de l'événement"
+            value={editedEvent.title}
+            onChange={(e) => handleFieldChange('title', e.target.value)}
+            fullWidth
+            variant="outlined"
+          />
+
+          {/* Date et heure */}
+          <LocalizationProvider dateAdapter={AdapterDateFns}>
+            <DateTimePicker
+              label="Date & Heure de l'événement"
+              value={editedEvent.eventDateTime}
+              onChange={(newValue) => handleFieldChange('eventDateTime', newValue)}
+              renderInput={(params) => <TextField {...params} fullWidth />}
+            />
+          </LocalizationProvider>
+
+          {/* Description */}
+          <Box>
+            <Typography variant="subtitle1" gutterBottom>Description de l'événement</Typography>
+            <RichTextEditor
+              value={editedEvent.description}
+              onChange={(content) => handleFieldChange('description', content)}
+            />
           </Box>
-        )}
+
+          {/* Bouton d'enregistrement */}
+          {isDirty && (
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 2 }}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleSave}
+                size="large"
+              >
+                Enregistrer les modifications
+              </Button>
+            </Box>
+          )}
+        </Stack>
       </Paper>
     </Box>
   );

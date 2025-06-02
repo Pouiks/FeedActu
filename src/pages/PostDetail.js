@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Paper, Typography, Box, Chip } from '@mui/material';
+import { Paper, Typography, Box, Chip, TextField, Button, Stack } from '@mui/material';
 import BackButton from '../components/BackButton';
+import RichTextEditor from '../components/RichTextEditor';
 
 // Données mockées (comme dans Posts.js)
 const mockPosts = [
@@ -12,12 +13,52 @@ const mockPosts = [
 export default function PostDetail() {
   const { id } = useParams();
   const [post, setPost] = useState(null);
+  const [editedPost, setEditedPost] = useState({});
+  const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
     // Simule la récupération du post par ID
     const foundPost = mockPosts.find(p => p.id === parseInt(id));
-    setPost(foundPost);
+    if (foundPost) {
+      setPost(foundPost);
+      setEditedPost({ 
+        title: foundPost.title || '',
+        message: foundPost.message || '',
+        imageUrl: foundPost.imageUrl || ''
+      });
+    }
   }, [id]);
+
+  // Vérifie si des modifications ont été faites
+  useEffect(() => {
+    if (!post) return;
+    
+    const hasChanges = 
+      editedPost.title !== post.title ||
+      editedPost.message !== post.message ||
+      editedPost.imageUrl !== post.imageUrl;
+    
+    setIsDirty(hasChanges);
+  }, [editedPost, post]);
+
+  const handleFieldChange = (fieldName, value) => {
+    setEditedPost(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+  };
+
+  const handleSave = () => {
+    console.log('Sauvegarde du post:', { ...post, ...editedPost });
+    
+    // Simule la sauvegarde
+    const updatedPost = { ...post, ...editedPost };
+    setPost(updatedPost);
+    setIsDirty(false);
+    
+    // Ici, on ferait l'appel API pour sauvegarder
+    alert('Post sauvegardé avec succès !');
+  };
 
   if (!post) {
     return (
@@ -43,8 +84,8 @@ export default function PostDetail() {
       
       <Paper sx={{ p: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h4" component="h1">
-            {post.title}
+          <Typography variant="h6" color="text.secondary">
+            Édition du post
           </Typography>
           <Chip 
             label={post.status} 
@@ -63,19 +104,64 @@ export default function PostDetail() {
           })}
         </Typography>
 
-        {post.imageUrl && (
-          <Box sx={{ mb: 3 }}>
-            <img 
-              src={post.imageUrl} 
-              alt={post.title}
-              style={{ maxWidth: '100%', height: 'auto' }}
+        <Stack spacing={3}>
+          {/* Titre */}
+          <TextField
+            label="Titre"
+            value={editedPost.title}
+            onChange={(e) => handleFieldChange('title', e.target.value)}
+            fullWidth
+            variant="outlined"
+          />
+
+          {/* URL d'image */}
+          <TextField
+            label="URL de l'image"
+            value={editedPost.imageUrl}
+            onChange={(e) => handleFieldChange('imageUrl', e.target.value)}
+            fullWidth
+            variant="outlined"
+            placeholder="https://exemple.com/image.jpg"
+          />
+
+          {/* Aperçu de l'image */}
+          {editedPost.imageUrl && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" gutterBottom>Aperçu de l'image :</Typography>
+              <img 
+                src={editedPost.imageUrl} 
+                alt="Aperçu"
+                style={{ maxWidth: '100%', maxHeight: '300px', height: 'auto' }}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            </Box>
+          )}
+
+          {/* Message */}
+          <Box>
+            <Typography variant="subtitle1" gutterBottom>Message</Typography>
+            <RichTextEditor
+              value={editedPost.message}
+              onChange={(content) => handleFieldChange('message', content)}
             />
           </Box>
-        )}
 
-        <Box sx={{ '& p': { mb: 2 } }}>
-          <div dangerouslySetInnerHTML={{ __html: post.message }} />
-        </Box>
+          {/* Bouton d'enregistrement */}
+          {isDirty && (
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 2 }}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleSave}
+                size="large"
+              >
+                Enregistrer les modifications
+              </Button>
+            </Box>
+          )}
+        </Stack>
       </Paper>
     </Box>
   );
