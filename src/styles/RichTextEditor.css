@@ -1,0 +1,48 @@
+/* src/styles/RichTextEditor.css */
+
+.rich-editor-wrapper {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 8px;
+  min-height: 300px;
+  background-color: #fff;
+}
+
+.rich-editor {
+  min-height: 200px;
+  padding: 10px;
+}
+
+.rich-editor-toolbar {
+  border-bottom: 1px solid #ddd;
+  margin-bottom: 10px;
+}
+
+/* Images INSIDE editor : */
+.rich-editor img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 10px 0;
+}
+
+/* BONUS : better handling pasted images or big images */
+.rich-editor img {
+  max-width: 400px; /* Hard limit preview */
+  height: auto;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+.rdw-image-modal {
+  z-index: 1500 !important; /* + haut que la modal MUI */
+  position: fixed !important; /* Pour ne plus subir le scroll du parent */
+  top: 50% !important; /* Centré verticalement */
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important; /* Bien centré */
+  max-height: 90vh; /* Sécurité sur la hauteur */
+  overflow: auto; /* Scroll interne si besoin */
+  background: white; /* Pour être lisible même si la modal est grisée */
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
