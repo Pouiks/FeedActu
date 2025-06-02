@@ -4,10 +4,64 @@ import { Paper, Typography, Box, Chip, Button, Stack } from '@mui/material';
 import BackButton from '../components/BackButton';
 import RichTextEditor from '../components/RichTextEditor';
 
-// Données mockées (comme dans DailyMessages.js)
+// Données mockées (synchronisées avec DailyMessages.js)
 const mockDailyMessages = [
-  { id: 1, message: '<p>Message du jour A avec du <strong>contenu important</strong></p>', publicationDate: '2024-05-02T02:00:00', status: 'Publié', residence_id: '1' },
-  { id: 2, message: '<p>Message du jour B avec des informations utiles</p>', publicationDate: '2024-05-06T02:00:00', status: 'Brouillon', residence_id: '1' },
+  { 
+    id: 1, 
+    message: '<p>🌟 <strong>Bonne journée à tous !</strong><br>N\'oubliez pas : le tri sélectif, c\'est tous les jours. Merci pour vos efforts ! ♻️</p>', 
+    priority: 'normal', 
+    publicationDate: '2024-11-22T07:00:00', 
+    status: 'Publié', 
+    residence_id: '1' 
+  },
+  { 
+    id: 2, 
+    message: '<p><strong style="color: red;">ATTENTION :</strong> Travaux de maintenance de l\'ascenseur aujourd\'hui de 9h à 12h.<br>Merci d\'utiliser les escaliers. 🔧</p>', 
+    priority: 'high', 
+    publicationDate: '2024-11-22T08:30:00', 
+    status: 'Publié', 
+    residence_id: '1' 
+  },
+  { 
+    id: 3, 
+    message: '<p>📅 <em>Rappel :</em> Assemblée générale <strong>demain 20 décembre à 18h30</strong>.<br>Votre présence ou votre pouvoir est indispensable !</p>', 
+    priority: 'urgent', 
+    publicationDate: '2024-12-19T08:00:00', 
+    status: 'Programmé', 
+    residence_id: '1' 
+  },
+  { 
+    id: 4, 
+    message: '<p>🎉 Félicitations à <strong>Marie et Pierre</strong> pour leur initiative du jardin partagé !<br>Les premières récoltes arrivent bientôt.</p>', 
+    priority: 'low', 
+    publicationDate: '2024-11-21T10:15:00', 
+    status: 'Brouillon', 
+    residence_id: '1' 
+  },
+  { 
+    id: 5, 
+    message: '<p>☀️ Prévisions météo : <em>journée ensoleillée</em> ! Parfait pour aérer les appartements.<br>Température max : 18°C.</p>', 
+    priority: 'low', 
+    publicationDate: '2024-11-20T07:30:00', 
+    status: 'Archivé', 
+    residence_id: '1' 
+  },
+  { 
+    id: 6, 
+    message: '<p><strong>🚨 URGENT - Fuite d\'eau détectée</strong><br>Parking niveau -1. Évitez la zone. Plombier en route.</p>', 
+    priority: 'urgent', 
+    publicationDate: '2024-11-19T14:20:00', 
+    status: 'Archivé', 
+    residence_id: '1' 
+  },
+  { 
+    id: 7, 
+    message: '<p>📦 <em>Colis en attente</em> dans le local gardien pour :<br>• Appartement 2A (M. Durand)<br>• Appartement 5C (Mme Martin)</p>', 
+    priority: 'normal', 
+    publicationDate: '2024-11-23T09:00:00', 
+    status: 'Brouillon', 
+    residence_id: '1' 
+  }
 ];
 
 export default function DailyMessageDetail() {

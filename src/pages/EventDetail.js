@@ -1,16 +1,106 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Paper, Typography, Box, Chip, TextField, Button, Stack } from '@mui/material';
-import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+import { DatePicker, TimePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { fr } from 'date-fns/locale';
 import BackButton from '../components/BackButton';
 import RichTextEditor from '../components/RichTextEditor';
 
-// Données mockées (comme dans Events.js)
+// Données mockées (synchronisées avec Events.js)
 const mockEvents = [
-  { id: 1, title: 'Événement A', eventDateTime: '2024-06-10T18:00:00', description: '<p>Description de l\'événement A avec du <strong>HTML</strong></p>', publicationDate: '2024-05-10T10:00:00', status: 'Publié', residence_id: '1' },
-  { id: 2, title: 'Événement B', eventDateTime: '2024-06-15T20:00:00', description: '<p>Description de l\'événement B</p>', publicationDate: '2024-05-12T10:00:00', status: 'Brouillon', residence_id: '1' },
+  { 
+    id: 1, 
+    title: 'Assemblée générale extraordinaire', 
+    description: '<p><strong>Ordre du jour :</strong><br>• Vote des travaux de réfection<br>• Budget exceptionnel<br>• Questions diverses</p>',
+    eventDate: '2024-12-20', 
+    startTime: '18:30', 
+    endTime: '20:30',
+    location: 'Salle de réunion (RDC)',
+    maxParticipants: 50,
+    publicationDate: '2024-11-22T09:00:00', 
+    status: 'Publié', 
+    residence_id: '1' 
+  },
+  { 
+    id: 2, 
+    title: 'Cours de yoga collectif', 
+    description: '<p>Séance de yoga pour tous niveaux avec <em>Marie</em>, professeure certifiée.<br><br>Apportez votre tapis ! 🧘‍♀️</p>',
+    eventDate: '2024-12-05', 
+    startTime: '19:00', 
+    endTime: '20:00',
+    location: 'Jardin commun (si beau temps)',
+    maxParticipants: 15,
+    publicationDate: '2024-11-20T14:15:00', 
+    status: 'Publié', 
+    residence_id: '1' 
+  },
+  { 
+    id: 3, 
+    title: 'Atelier cuisine enfants', 
+    description: '<p>Les petits chefs en herbe vont préparer des <strong>cookies de Noël</strong> ! 👨‍🍳</p>',
+    eventDate: '2024-12-18', 
+    startTime: '14:00', 
+    endTime: '16:30',
+    location: 'Cuisine commune',
+    maxParticipants: 8,
+    publicationDate: '2024-12-10T10:00:00', 
+    status: 'Programmé', 
+    residence_id: '1' 
+  },
+  { 
+    id: 4, 
+    title: 'Soirée film en plein air', 
+    description: '<p>Projection du film <em>"Le Grand Bleu"</em> dans le jardin.<br>Popcorn et boissons offerts ! 🍿</p>',
+    eventDate: '2024-12-08', 
+    startTime: '20:00', 
+    endTime: '22:30',
+    location: 'Jardin commun',
+    maxParticipants: 30,
+    publicationDate: '2024-11-25T16:45:00', 
+    status: 'Brouillon', 
+    residence_id: '1' 
+  },
+  { 
+    id: 5, 
+    title: 'Vide-grenier des résidents', 
+    description: '<p>Grande braderie entre voisins ! Livres, vêtements, objets de décoration...<br><br>Inscription obligatoire pour tenir un stand.</p>',
+    eventDate: '2025-01-15', 
+    startTime: '09:00', 
+    endTime: '17:00',
+    location: 'Parking sous-sol',
+    maxParticipants: 100,
+    publicationDate: '2024-11-30T08:00:00', 
+    status: 'Brouillon', 
+    residence_id: '1' 
+  },
+  { 
+    id: 6, 
+    title: 'Fête d\'Halloween 2024', 
+    description: '<p>Soirée déguisée pour petits et grands ! 🎃<br>Concours du meilleur costume avec prix à la clé.</p>',
+    eventDate: '2024-10-31', 
+    startTime: '18:00', 
+    endTime: '21:00',
+    location: 'Hall d\'entrée',
+    maxParticipants: 40,
+    publicationDate: '2024-10-15T12:00:00', 
+    status: 'Archivé', 
+    residence_id: '1' 
+  },
+  { 
+    id: 7, 
+    title: 'Maintenance collective vélos', 
+    description: '<p>Atelier réparation et entretien vélos avec <strong>Pierre</strong>, mécanicien bénévole.</p>',
+    eventDate: '2024-12-12', 
+    startTime: '10:00', 
+    endTime: '12:00',
+    location: 'Local vélos',
+    maxParticipants: 6,
+    publicationDate: '2024-11-28T15:30:00', 
+    status: 'Publié', 
+    residence_id: '1' 
+  }
 ];
 
 export default function EventDetail() {
@@ -26,7 +116,11 @@ export default function EventDetail() {
       setEvent(foundEvent);
       setEditedEvent({ 
         title: foundEvent.title || '',
-        eventDateTime: new Date(foundEvent.eventDateTime),
+        eventDate: new Date(foundEvent.eventDate),
+        startTime: new Date(`2000-01-01T${foundEvent.startTime}:00`),
+        endTime: new Date(`2000-01-01T${foundEvent.endTime}:00`),
+        location: foundEvent.location || '',
+        maxParticipants: foundEvent.maxParticipants || '',
         description: foundEvent.description || ''
       });
     }
@@ -38,7 +132,11 @@ export default function EventDetail() {
     
     const hasChanges = 
       editedEvent.title !== event.title ||
-      editedEvent.eventDateTime?.toISOString() !== new Date(event.eventDateTime).toISOString() ||
+      editedEvent.eventDate?.toISOString().split('T')[0] !== event.eventDate ||
+      editedEvent.startTime?.toTimeString().slice(0, 5) !== event.startTime ||
+      editedEvent.endTime?.toTimeString().slice(0, 5) !== event.endTime ||
+      editedEvent.location !== event.location ||
+      editedEvent.maxParticipants !== event.maxParticipants ||
       editedEvent.description !== event.description;
     
     setIsDirty(hasChanges);
@@ -55,14 +153,21 @@ export default function EventDetail() {
     console.log('Sauvegarde de l\'événement:', { 
       ...event, 
       ...editedEvent,
-      eventDateTime: editedEvent.eventDateTime.toISOString()
+      eventDate: editedEvent.eventDate.toISOString().split('T')[0],
+      startTime: editedEvent.startTime.toTimeString().slice(0, 5),
+      endTime: editedEvent.endTime.toTimeString().slice(0, 5)
     });
     
     // Simule la sauvegarde
     const updatedEvent = { 
       ...event, 
-      ...editedEvent,
-      eventDateTime: editedEvent.eventDateTime.toISOString()
+      title: editedEvent.title,
+      eventDate: editedEvent.eventDate.toISOString().split('T')[0],
+      startTime: editedEvent.startTime.toTimeString().slice(0, 5),
+      endTime: editedEvent.endTime.toTimeString().slice(0, 5),
+      location: editedEvent.location,
+      maxParticipants: editedEvent.maxParticipants,
+      description: editedEvent.description
     };
     setEvent(updatedEvent);
     setIsDirty(false);
@@ -82,6 +187,7 @@ export default function EventDetail() {
   const getStatusColor = (status) => {
     switch (status) {
       case 'Publié': return 'success';
+      case 'Programmé': return 'info';
       case 'Brouillon': return 'warning';
       case 'Archivé': return 'default';
       default: return 'default';
@@ -124,15 +230,67 @@ export default function EventDetail() {
             variant="outlined"
           />
 
-          {/* Date et heure */}
-          <LocalizationProvider dateAdapter={AdapterDateFns}>
-            <DateTimePicker
-              label="Date & Heure de l'événement"
-              value={editedEvent.eventDateTime}
-              onChange={(newValue) => handleFieldChange('eventDateTime', newValue)}
-              renderInput={(params) => <TextField {...params} fullWidth />}
+          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={fr}>
+            {/* Date */}
+            <DatePicker
+              label="Date de l'événement"
+              value={editedEvent.eventDate}
+              onChange={(newValue) => handleFieldChange('eventDate', newValue)}
+              slotProps={{ 
+                textField: { 
+                  fullWidth: true
+                }
+              }}
+              disablePast
             />
+
+            {/* Heures */}
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TimePicker
+                label="Heure de début"
+                value={editedEvent.startTime}
+                onChange={(newValue) => handleFieldChange('startTime', newValue)}
+                slotProps={{ 
+                  textField: { 
+                    fullWidth: true
+                  }
+                }}
+                ampm={false}
+              />
+              <TimePicker
+                label="Heure de fin"
+                value={editedEvent.endTime}
+                onChange={(newValue) => handleFieldChange('endTime', newValue)}
+                slotProps={{ 
+                  textField: { 
+                    fullWidth: true
+                  }
+                }}
+                ampm={false}
+              />
+            </Box>
           </LocalizationProvider>
+
+          {/* Lieu */}
+          <TextField
+            label="Lieu"
+            value={editedEvent.location}
+            onChange={(e) => handleFieldChange('location', e.target.value)}
+            fullWidth
+            variant="outlined"
+            placeholder="Salle commune, Jardin, Hall d'entrée..."
+          />
+
+          {/* Participants max */}
+          <TextField
+            label="Nombre maximum de participants"
+            type="number"
+            value={editedEvent.maxParticipants}
+            onChange={(e) => handleFieldChange('maxParticipants', parseInt(e.target.value) || '')}
+            fullWidth
+            variant="outlined"
+            placeholder="Laisser vide si pas de limite"
+          />
 
           {/* Description */}
           <Box>
