@@ -5,6 +5,7 @@ import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { useResidence } from '../context/ResidenceContext';
 
 const mockAlerts = [
   { 
@@ -82,43 +83,40 @@ const mockAlerts = [
 ];
 
 export default function Alerts() {
-  const { residenceId, ensureAuthenticated, authenticatedPost } = useAuth();
+  const { ensureAuthenticated, authenticatedPost } = useAuth();
+  const { currentResidenceId } = useResidence();
   const [openModal, setOpenModal] = useState(false);
   const [alerts, setAlerts] = useState(mockAlerts);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const navigate = useNavigate();
 
   const columns = [
-    { id: 'message', label: 'Alerte', sortable: false, searchable: true },
-    { id: 'type', label: 'Type', sortable: true, searchable: false },
+    { id: 'title', label: 'Titre', sortable: true, searchable: true },
     { id: 'priority', label: 'Priorité', sortable: true, searchable: false },
+    { id: 'category', label: 'Catégorie', sortable: true, searchable: false },
     { id: 'publicationDate', label: 'Date de publication', sortable: true, searchable: false },
     { id: 'status', label: 'Statut', sortable: true, searchable: false },
   ];
 
-  const filteredAlerts = alerts.filter(alert => alert.residence_id === residenceId);
+  const filteredAlerts = alerts.filter(alert => alert.residence_id === currentResidenceId);
 
   const handleAddAlert = async (newAlert) => {
     try {
-      // Vérifier l'authentification avant de procéder
       ensureAuthenticated('créer une nouvelle alerte');
       
       console.log('✅ Utilisateur authentifié, création de l\'alerte...');
       
-      // Utiliser le middleware pour une action authentifiée
       const result = await authenticatedPost('/api/alerts', newAlert);
       
       console.log('✅ Alerte créée avec succès:', result);
       
-      // Ajouter l'alerte à l'état local (simulation)
       const alertWithId = { 
         ...newAlert, 
         id: Date.now(), 
-        residence_id: residenceId 
+        residence_id: currentResidenceId
       };
       setAlerts(prev => [...prev, alertWithId]);
       
-      // Fermer le modal et afficher une notification
       setOpenModal(false);
       setNotification({
         open: true,
@@ -147,7 +145,6 @@ export default function Alerts() {
 
   const handleNewAlertClick = () => {
     try {
-      // Vérifier l'authentification avant d'ouvrir le modal
       ensureAuthenticated('créer une nouvelle alerte');
       setOpenModal(true);
     } catch (error) {

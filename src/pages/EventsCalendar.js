@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Snackbar } from '@mui/material';
 import ModalPublicationForm from '../components/ModalPublicationForm';
+import { useResidence } from '../context/ResidenceContext';
 
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -106,16 +107,17 @@ const mockEvents = [
 ];
 
 export default function EventsCalendar() {
-  const { residenceId, ensureAuthenticated, authenticatedPost } = useAuth();
-  const navigate = useNavigate();
-  const [events, setEvents] = useState(mockEvents);
+  const { ensureAuthenticated, authenticatedPost } = useAuth();
+  const { currentResidenceId } = useResidence();
   const [openModal, setOpenModal] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(null);
+  const [events, setEvents] = useState(mockEvents);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+  const navigate = useNavigate();
+  const [selectedDate, setSelectedDate] = useState(null);
 
   console.log('🔄 EventsCalendar rendu - openModal:', openModal, 'selectedDate:', selectedDate);
 
-  const filteredEvents = events.filter(event => event.residence_id === residenceId);
+  const filteredEvents = events.filter(event => event.residence_id === currentResidenceId);
 
   // Convertir les données Events.js vers le format FullCalendar
   const calendarEvents = filteredEvents.map(event => ({
@@ -166,12 +168,10 @@ export default function EventsCalendar() {
 
   const handleAddEvent = async (newEvent) => {
     try {
-      // Vérifier l'authentification avant de procéder
       ensureAuthenticated('créer un nouvel événement');
       
       console.log('✅ Utilisateur authentifié, création de l\'événement...');
       
-      // Utiliser le middleware pour une action authentifiée
       const result = await authenticatedPost('/api/events', newEvent);
       
       console.log('✅ Événement créé avec succès:', result);
@@ -179,25 +179,14 @@ export default function EventsCalendar() {
       const eventWithId = { 
         ...newEvent, 
         id: Date.now(), 
-        residence_id: residenceId,
-        // Convertir les objets Date en chaînes pour correspondre au format Events.js
-        eventDate: newEvent.eventDate instanceof Date 
-          ? newEvent.eventDate.toISOString().split('T')[0] 
-          : newEvent.eventDate,
-        startTime: newEvent.startTime instanceof Date
-          ? newEvent.startTime.toTimeString().slice(0, 5)
-          : newEvent.startTime,
-        endTime: newEvent.endTime instanceof Date
-          ? newEvent.endTime.toTimeString().slice(0, 5) 
-          : newEvent.endTime
+        residence_id: currentResidenceId,
+        status: 'Publié'
       };
-      
-      console.log('➕ Événement créé:', eventWithId);
       setEvents(prev => [...prev, eventWithId]);
+      
       setOpenModal(false);
       setSelectedDate(null);
       
-      // Afficher une notification de succès
       setNotification({
         open: true,
         message: 'Événement créé avec succès !',

@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { MsalProvider, useMsal } from '@azure/msal-react';
 import { PublicClientApplication, InteractionStatus } from '@azure/msal-browser';
+import { getAuthorizedResidencesForUser } from '../provider/residenceAccessProvider';
 
 const AuthContext = createContext();
 
@@ -35,6 +36,7 @@ function AuthProviderInternal({ children }) {
     userId: '',
     tenantId: '',
     residenceId: null,
+    authorizedResidences: [],
     accessToken: null,
     isLoading: true // Important pour éviter les redirections prématurées
   });
@@ -73,6 +75,7 @@ function AuthProviderInternal({ children }) {
           userId: '',
           tenantId: '',
           residenceId: null,
+          authorizedResidences: [],
           accessToken: null,
           isLoading: false
         });
@@ -96,6 +99,18 @@ function AuthProviderInternal({ children }) {
         
         console.log('✅ Token récupéré silencieusement');
         console.log('🎯 Access token disponible');
+        
+        // Récupérer les résidences autorisées
+        const userEmail = account.username;
+        let userResidences = [];
+        
+        try {
+          userResidences = await getAuthorizedResidencesForUser(userEmail);
+          console.log('🏠 Résidences autorisées:', userResidences);
+        } catch (residenceError) {
+          console.log('⚠️ Erreur récupération résidences (non bloquante):', residenceError.message);
+          userResidences = [];
+        }
         
         // Récupérer les infos utilisateur via Microsoft Graph
         let userInfo = null;
@@ -125,7 +140,10 @@ function AuthProviderInternal({ children }) {
           name: userInfo?.displayName || account.name || account.username,
           userId: account.homeAccountId,
           tenantId: account.tenantId,
-          residenceId: localStorage.getItem('residenceId') || '1',
+          residenceId: userResidences?.length === 1 
+            ? userResidences[0].residenceId 
+            : (localStorage.getItem('residenceId') || '1'),
+          authorizedResidences: userResidences,
           accessToken: response.accessToken,
           isLoading: false
         });
@@ -143,6 +161,7 @@ function AuthProviderInternal({ children }) {
           userId: '',
           tenantId: '',
           residenceId: null,
+          authorizedResidences: [],
           accessToken: null,
           isLoading: false
         });
@@ -159,6 +178,7 @@ function AuthProviderInternal({ children }) {
         userId: '',
         tenantId: '',
         residenceId: null,
+        authorizedResidences: [],
         accessToken: null,
         isLoading: false
       });
@@ -190,6 +210,18 @@ function AuthProviderInternal({ children }) {
       console.log(`👤 Utilisateur connecté: ${response.account.username}`);
       console.log('🎯 Access token récupéré');
       
+      // Récupérer les résidences autorisées
+      const userEmail = response.account.username;
+      let userResidences = [];
+      
+      try {
+        userResidences = await getAuthorizedResidencesForUser(userEmail);
+        console.log('🏠 Résidences autorisées après login:', userResidences);
+      } catch (residenceError) {
+        console.log('⚠️ Erreur récupération résidences après login (non bloquante):', residenceError.message);
+        userResidences = [];
+      }
+      
       // Récupérer les infos utilisateur via Microsoft Graph
       let userInfo = null;
       try {
@@ -215,13 +247,20 @@ function AuthProviderInternal({ children }) {
         name: userInfo?.displayName || response.account.name || response.account.username,
         userId: response.account.homeAccountId,
         tenantId: response.account.tenantId,
-        residenceId: '1', // Valeur par défaut, à adapter selon vos règles métier
+        residenceId: userResidences?.length === 1 
+          ? userResidences[0].residenceId 
+          : '1', // Valeur par défaut préservée
+        authorizedResidences: userResidences,
         accessToken: response.accessToken,
         isLoading: false
       });
       
       // Persister la résidence
-      localStorage.setItem('residenceId', '1');
+      if (userResidences?.length === 1) {
+        localStorage.setItem('residenceId', userResidences[0].residenceId);
+      } else {
+        localStorage.setItem('residenceId', '1');
+      }
       
       console.log('✅ État d\'authentification mis à jour');
       return response;
@@ -230,7 +269,7 @@ function AuthProviderInternal({ children }) {
       console.error('❌ Erreur lors de la connexion:', error);
       
       // S'assurer que le loading est désactivé en cas d'erreur
-      setAuthData(prev => ({ ...prev, isLoading: false }));
+      setAuthData(prev => ({ ...prev, authorizedResidences: [], isLoading: false }));
       
       // Relancer l'erreur pour que les composants puissent la gérer
       throw error;
@@ -263,6 +302,24 @@ function AuthProviderInternal({ children }) {
 
       const userData = mockUserData || defaultMockUser;
       
+      // Récupération des résidences pour l'utilisateur mock
+      let mockResidences = [];
+      try {
+        mockResidences = await getAuthorizedResidencesForUser(userData.email);
+        if (mockResidences.length === 0) {
+          // Si pas de mapping, créer des résidences fictives
+          mockResidences = [
+            { residenceId: userData.residenceId, residenceName: 'Résidence Test Mock' }
+          ];
+        }
+        console.log('🏠 Résidences mock récupérées:', mockResidences);
+      } catch (error) {
+        console.log('⚠️ Mapping mock - utilisation résidence par défaut');
+        mockResidences = [
+          { residenceId: userData.residenceId, residenceName: 'Résidence Test Mock' }
+        ];
+      }
+      
       // Simuler un délai réseau
       await new Promise(resolve => setTimeout(resolve, 1000));
       
@@ -274,6 +331,7 @@ function AuthProviderInternal({ children }) {
         userId: userData.userId,
         tenantId: userData.tenantId,
         residenceId: userData.residenceId,
+        authorizedResidences: mockResidences,
         accessToken: userData.accessToken,
         isLoading: false
       });
@@ -290,7 +348,7 @@ function AuthProviderInternal({ children }) {
       
     } catch (error) {
       console.error('❌ Erreur lors de la simulation:', error);
-      setAuthData(prev => ({ ...prev, isLoading: false }));
+      setAuthData(prev => ({ ...prev, authorizedResidences: [], isLoading: false }));
       throw error;
     }
   };
@@ -317,6 +375,7 @@ function AuthProviderInternal({ children }) {
           userId: '',
           tenantId: '',
           residenceId: null,
+          authorizedResidences: [],
           accessToken: null,
           isLoading: false
         });
@@ -342,6 +401,7 @@ function AuthProviderInternal({ children }) {
         userId: '',
         tenantId: '',
         residenceId: null,
+        authorizedResidences: [],
         accessToken: null,
         isLoading: false
       });

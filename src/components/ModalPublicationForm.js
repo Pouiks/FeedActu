@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Modal, Box, Typography, TextField, Button, Stack, FormControlLabel, 
   Checkbox, Alert, MenuItem, FormControl, InputLabel, Select
@@ -30,13 +30,21 @@ export default function ModalPublicationForm({ open, handleClose, onSubmit, enti
   const [publishLater, setPublishLater] = useState(false);
   const [publishDateTime, setPublishDateTime] = useState(new Date());
   const [errors, setErrors] = useState({});
+  const isFirstOpen = useRef(true);
 
   // Initialiser le formulaire avec les valeurs initiales quand le modal s'ouvre
   useEffect(() => {
     if (open) {
-      setFormData(initialValues);
+      // Ne réinitialiser que si c'est la première ouverture ou si le modal était fermé
+      if (isFirstOpen.current || !formData || Object.keys(formData).length === 0) {
+        setFormData(initialValues || {});
+        isFirstOpen.current = false;
+      }
+    } else {
+      // Reset quand le modal se ferme pour la prochaine ouverture
+      isFirstOpen.current = true;
     }
-  }, [open, initialValues]);
+  }, [open]);
 
   const handleChange = (fieldName, value) => {
     setFormData(prev => ({ ...prev, [fieldName]: value }));

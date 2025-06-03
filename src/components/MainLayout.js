@@ -6,6 +6,7 @@ import {
 } from '@mui/material';
 import { LogoutOutlined, PersonOutline } from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
+import ResidenceSelector from './ResidenceSelector';
 
 const drawerWidth = 240;
 
@@ -51,6 +52,11 @@ export default function MainLayout() {
             </IconButton>
           </Tooltip>
         </Box>
+
+        <Divider />
+
+        {/* Sélecteur de résidence */}
+        <ResidenceSelector />
 
         <Divider />
 

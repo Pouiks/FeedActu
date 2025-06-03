@@ -5,6 +5,7 @@ import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { useResidence } from '../context/ResidenceContext';
 
 const mockPolls = [
   { 
@@ -58,7 +59,8 @@ const mockPolls = [
 ];
 
 export default function Polls() {
-  const { residenceId, ensureAuthenticated, authenticatedPost } = useAuth();
+  const { ensureAuthenticated, authenticatedPost } = useAuth();
+  const { currentResidenceId } = useResidence();
   const [openModal, setOpenModal] = useState(false);
   const [polls, setPolls] = useState(mockPolls);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
@@ -70,29 +72,25 @@ export default function Polls() {
     { id: 'status', label: 'Statut', sortable: true, searchable: false },
   ];
 
-  const filteredPolls = polls.filter(poll => poll.residence_id === residenceId);
+  const filteredPolls = polls.filter(poll => poll.residence_id === currentResidenceId);
 
   const handleAddPoll = async (newPoll) => {
     try {
-      // Vérifier l'authentification avant de procéder
       ensureAuthenticated('créer un nouveau sondage');
       
       console.log('✅ Utilisateur authentifié, création du sondage...');
       
-      // Utiliser le middleware pour une action authentifiée
       const result = await authenticatedPost('/api/polls', newPoll);
       
       console.log('✅ Sondage créé avec succès:', result);
       
-      // Ajouter le sondage à l'état local (simulation)
       const pollWithId = { 
         ...newPoll, 
         id: Date.now(), 
-        residence_id: residenceId 
+        residence_id: currentResidenceId 
       };
       setPolls(prev => [...prev, pollWithId]);
       
-      // Fermer le modal et afficher une notification
       setOpenModal(false);
       setNotification({
         open: true,
@@ -121,7 +119,6 @@ export default function Polls() {
 
   const handleNewPollClick = () => {
     try {
-      // Vérifier l'authentification avant d'ouvrir le modal
       ensureAuthenticated('créer un nouveau sondage');
       setOpenModal(true);
     } catch (error) {

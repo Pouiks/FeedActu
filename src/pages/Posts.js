@@ -5,6 +5,7 @@ import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { useResidence } from '../context/ResidenceContext';
 
 const mockPosts = [
   { 
@@ -70,7 +71,8 @@ const mockPosts = [
 ];
 
 export default function Posts() {
-  const { residenceId, ensureAuthenticated, authenticatedPost } = useAuth();
+  const { ensureAuthenticated, authenticatedPost } = useAuth();
+  const { currentResidenceId } = useResidence();
   const [openModal, setOpenModal] = useState(false);
   const [posts, setPosts] = useState(mockPosts);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
@@ -83,7 +85,7 @@ export default function Posts() {
     { id: 'status', label: 'Statut', sortable: true, searchable: false },
   ];
 
-  const filteredPosts = posts.filter(post => post.residence_id === residenceId);
+  const filteredPosts = posts.filter(post => post.residence_id === currentResidenceId);
 
   const handleAddPost = async (newPost) => {
     try {
@@ -101,7 +103,7 @@ export default function Posts() {
       const postWithId = { 
         ...newPost, 
         id: Date.now(), 
-        residence_id: residenceId 
+        residence_id: currentResidenceId 
       };
       setPosts(prev => [...prev, postWithId]);
       

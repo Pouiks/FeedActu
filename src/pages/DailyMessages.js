@@ -5,6 +5,7 @@ import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { useResidence } from '../context/ResidenceContext';
 
 const mockDailyMessages = [
   { 
@@ -65,8 +66,9 @@ const mockDailyMessages = [
   }
 ];
 
-export default function DailyMessage() {
-  const { residenceId, ensureAuthenticated, authenticatedPost } = useAuth();
+export default function DailyMessages() {
+  const { ensureAuthenticated, authenticatedPost } = useAuth();
+  const { currentResidenceId } = useResidence();
   const [openModal, setOpenModal] = useState(false);
   const [messages, setMessages] = useState(mockDailyMessages);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
@@ -79,33 +81,29 @@ export default function DailyMessage() {
     { id: 'status', label: 'Statut', sortable: true, searchable: false },
   ];
 
-  const filteredMessages = messages.filter(msg => msg.residence_id === residenceId);
+  const filteredMessages = messages.filter(msg => msg.residence_id === currentResidenceId);
 
   const handleAddMessage = async (newMessage) => {
     try {
-      // Vérifier l'authentification avant de procéder
-      ensureAuthenticated('créer un nouveau message');
+      ensureAuthenticated('créer un nouveau message du jour');
       
       console.log('✅ Utilisateur authentifié, création du message...');
       
-      // Utiliser le middleware pour une action authentifiée
       const result = await authenticatedPost('/api/daily-messages', newMessage);
       
       console.log('✅ Message créé avec succès:', result);
       
-      // Ajouter le message à l'état local (simulation)
       const messageWithId = { 
         ...newMessage, 
         id: Date.now(), 
-        residence_id: residenceId 
+        residence_id: currentResidenceId
       };
       setMessages(prev => [...prev, messageWithId]);
       
-      // Fermer le modal et afficher une notification
       setOpenModal(false);
       setNotification({
         open: true,
-        message: 'Message du jour créé avec succès !',
+        message: 'Message créé avec succès !',
         severity: 'success'
       });
       
@@ -130,7 +128,6 @@ export default function DailyMessage() {
 
   const handleNewMessageClick = () => {
     try {
-      // Vérifier l'authentification avant d'ouvrir le modal
       ensureAuthenticated('créer un nouveau message');
       setOpenModal(true);
     } catch (error) {

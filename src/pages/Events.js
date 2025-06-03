@@ -5,6 +5,7 @@ import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { useResidence } from '../context/ResidenceContext';
 
 const mockEvents = [
   { 
@@ -101,44 +102,39 @@ const mockEvents = [
 ];
 
 export default function Events() {
-  const { residenceId, ensureAuthenticated, authenticatedPost } = useAuth();
-  const navigate = useNavigate();
+  const { ensureAuthenticated, authenticatedPost } = useAuth();
+  const { currentResidenceId } = useResidence();
   const [openModal, setOpenModal] = useState(false);
   const [events, setEvents] = useState(mockEvents);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+  const navigate = useNavigate();
 
   const columns = [
-    { id: 'title', label: 'Nom de l\'événement', sortable: true, searchable: true },
+    { id: 'title', label: 'Titre', sortable: true, searchable: true },
     { id: 'eventDate', label: 'Date de l\'événement', sortable: true, searchable: false },
-    { id: 'startTime', label: 'Heure', sortable: true, searchable: false },
-    { id: 'location', label: 'Lieu', sortable: true, searchable: true },
-    { id: 'publicationDate', label: 'Date de publication', sortable: true, searchable: false },
+    { id: 'location', label: 'Lieu', sortable: false, searchable: true },
     { id: 'status', label: 'Statut', sortable: true, searchable: false },
   ];
 
-  const filteredEvents = events.filter(event => event.residence_id === residenceId);
+  const filteredEvents = events.filter(event => event.residence_id === currentResidenceId);
 
   const handleAddEvent = async (newEvent) => {
     try {
-      // Vérifier l'authentification avant de procéder
       ensureAuthenticated('créer un nouvel événement');
       
       console.log('✅ Utilisateur authentifié, création de l\'événement...');
       
-      // Utiliser le middleware pour une action authentifiée
       const result = await authenticatedPost('/api/events', newEvent);
       
       console.log('✅ Événement créé avec succès:', result);
       
-      // Ajouter l'événement à l'état local (simulation)
       const eventWithId = { 
         ...newEvent, 
         id: Date.now(), 
-        residence_id: residenceId 
+        residence_id: currentResidenceId
       };
       setEvents(prev => [...prev, eventWithId]);
       
-      // Fermer le modal et afficher une notification
       setOpenModal(false);
       setNotification({
         open: true,
@@ -167,7 +163,6 @@ export default function Events() {
 
   const handleNewEventClick = () => {
     try {
-      // Vérifier l'authentification avant d'ouvrir le modal
       ensureAuthenticated('créer un nouvel événement');
       setOpenModal(true);
     } catch (error) {
