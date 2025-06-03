@@ -237,10 +237,93 @@ function AuthProviderInternal({ children }) {
     }
   };
 
+  // === DÉBUT BLOC DÉVELOPPEMENT - FACILEMENT SUPPRIMABLE ===
+  // Fonction de mock login pour développement uniquement
+  const mockLogin = async (mockUserData = null) => {
+    if (process.env.NODE_ENV !== 'development') {
+      console.warn('🚫 Mock login désactivé en production');
+      return;
+    }
+
+    try {
+      console.log('🧪 Simulation de connexion en mode développement...');
+      
+      // Données utilisateur fictives par défaut
+      const defaultMockUser = {
+        email: 'marie.dupont@residence-example.com',
+        name: 'Marie Dupont',
+        userId: 'mock-user-123456',
+        tenantId: 'mock-tenant-789',
+        residenceId: '2',
+        accessToken: 'mock-access-token-dev',
+        department: 'Résidence Les Jardins',
+        officeLocation: 'Bâtiment A - Apt 205',
+        jobTitle: 'Résidente'
+      };
+
+      const userData = mockUserData || defaultMockUser;
+      
+      // Simuler un délai réseau
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Mettre à jour l'état d'authentification
+      setAuthData({
+        isAuthenticated: true,
+        email: userData.email,
+        name: userData.name,
+        userId: userData.userId,
+        tenantId: userData.tenantId,
+        residenceId: userData.residenceId,
+        accessToken: userData.accessToken,
+        isLoading: false
+      });
+      
+      // Persister la résidence pour le mock
+      localStorage.setItem('residenceId', userData.residenceId);
+      localStorage.setItem('mockUser', 'true'); // Flag pour indiquer un utilisateur mock
+      
+      console.log('✅ Connexion simulée réussie');
+      console.log('👤 Utilisateur simulé:', userData.name);
+      console.log('🏠 Résidence:', userData.residenceId);
+      
+      return { account: userData, accessToken: userData.accessToken };
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la simulation:', error);
+      setAuthData(prev => ({ ...prev, isLoading: false }));
+      throw error;
+    }
+  };
+  // === FIN BLOC DÉVELOPPEMENT ===
+
   // Fonction de déconnexion
   const logout = async () => {
     try {
       console.log('🔄 Déconnexion en cours...');
+      
+      // === DÉBUT MODIFICATION DÉVELOPPEMENT ===
+      // Vérifier si c'est un utilisateur mock
+      const isMockUser = localStorage.getItem('mockUser') === 'true';
+      
+      if (isMockUser) {
+        console.log('🧪 Déconnexion utilisateur simulé');
+        localStorage.removeItem('mockUser');
+        localStorage.removeItem('residenceId');
+        
+        setAuthData({
+          isAuthenticated: false,
+          email: '',
+          name: '',
+          userId: '',
+          tenantId: '',
+          residenceId: null,
+          accessToken: null,
+          isLoading: false
+        });
+        
+        return;
+      }
+      // === FIN MODIFICATION DÉVELOPPEMENT ===
       
       await instance.logoutRedirect({
         postLogoutRedirectUri: window.location.origin
@@ -303,6 +386,7 @@ function AuthProviderInternal({ children }) {
   const contextValue = {
     ...authData,
     login,
+    mockLogin,
     logout,
     getValidToken,
     msalInstance: instance

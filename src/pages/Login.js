@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { Box, Button, Typography, Paper, Alert, CircularProgress } from '@mui/material';
+import { Box, Button, Typography, Paper, Alert, CircularProgress, Divider } from '@mui/material';
 
 export default function Login() {
-  const { login, isAuthenticated, isLoading } = useAuth();
+  const { login, mockLogin, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
   const [loginLoading, setLoginLoading] = useState(false);
   const [error, setError] = useState('');
@@ -43,6 +43,25 @@ export default function Login() {
       setLoginLoading(false);
     }
   };
+
+  // === DÉBUT FONCTION DÉVELOPPEMENT - FACILEMENT SUPPRIMABLE ===
+  const handleMockLogin = async () => {
+    setLoginLoading(true);
+    setError('');
+
+    try {
+      console.log('🧪 Connexion de test...');
+      await mockLogin();
+      console.log('✅ Connexion test réussie, redirection...');
+      navigate('/', { replace: true });
+    } catch (error) {
+      console.error('❌ Erreur lors de la connexion test:', error);
+      setError(`Erreur de connexion test: ${error.message || 'Erreur inconnue'}`);
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+  // === FIN FONCTION DÉVELOPPEMENT ===
 
   // Afficher un loader pendant la vérification de l'état d'auth
   if (isLoading) {
@@ -126,6 +145,44 @@ export default function Login() {
             'Se connecter avec mon compte'
           )}
         </Button>
+
+        {/* === DÉBUT BLOC DÉVELOPPEMENT - FACILEMENT SUPPRIMABLE === */}
+        {process.env.NODE_ENV === 'development' && (
+          <>
+            <Divider sx={{ my: 3 }}>
+              <Typography variant="caption" color="textSecondary">
+                Mode développement
+              </Typography>
+            </Divider>
+            
+            <Button
+              variant="outlined"
+              color="secondary"
+              fullWidth
+              size="large"
+              onClick={handleMockLogin}
+              disabled={loginLoading}
+              sx={{
+                py: 1.5,
+                fontSize: '1rem',
+                textTransform: 'none',
+                borderRadius: 2,
+                fontWeight: 500,
+                mb: 2
+              }}
+            >
+              {loginLoading ? (
+                <>
+                  <CircularProgress size={20} sx={{ mr: 2 }} />
+                  Connexion test...
+                </>
+              ) : (
+                '🧪 Connexion de test (Marie Dupont)'
+              )}
+            </Button>
+          </>
+        )}
+        {/* === FIN BLOC DÉVELOPPEMENT === */}
 
         <Typography variant="caption" color="textSecondary" align="center" sx={{ mt: 3, display: 'block' }}>
           Authentification sécurisée via Azure Active Directory
