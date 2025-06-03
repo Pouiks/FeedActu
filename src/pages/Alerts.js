@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Button } from '@mui/material';
+import { Button, Alert, Snackbar } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
 import { useAuth } from '../hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 
 const mockAlerts = [
   { 
@@ -81,9 +82,11 @@ const mockAlerts = [
 ];
 
 export default function Alerts() {
-  const { residenceId } = useAuth();
+  const { residenceId, ensureAuthenticated, authenticatedPost } = useAuth();
   const [openModal, setOpenModal] = useState(false);
   const [alerts, setAlerts] = useState(mockAlerts);
+  const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+  const navigate = useNavigate();
 
   const columns = [
     { id: 'message', label: 'Alerte', sortable: false, searchable: true },
@@ -95,13 +98,74 @@ export default function Alerts() {
 
   const filteredAlerts = alerts.filter(alert => alert.residence_id === residenceId);
 
-  const handleAddAlert = (newAlert) => {
-    const alertWithId = { ...newAlert, id: Date.now(), residence_id: residenceId };
-    setAlerts(prev => [...prev, alertWithId]);
+  const handleAddAlert = async (newAlert) => {
+    try {
+      // Vérifier l'authentification avant de procéder
+      ensureAuthenticated('créer une nouvelle alerte');
+      
+      console.log('✅ Utilisateur authentifié, création de l\'alerte...');
+      
+      // Utiliser le middleware pour une action authentifiée
+      const result = await authenticatedPost('/api/alerts', newAlert);
+      
+      console.log('✅ Alerte créée avec succès:', result);
+      
+      // Ajouter l'alerte à l'état local (simulation)
+      const alertWithId = { 
+        ...newAlert, 
+        id: Date.now(), 
+        residence_id: residenceId 
+      };
+      setAlerts(prev => [...prev, alertWithId]);
+      
+      // Fermer le modal et afficher une notification
+      setOpenModal(false);
+      setNotification({
+        open: true,
+        message: 'Alerte créée avec succès !',
+        severity: 'success'
+      });
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la création de l\'alerte:', error);
+      
+      let errorMessage = 'Erreur lors de la création de l\'alerte';
+      
+      if (error.code === 'UNAUTHENTICATED') {
+        errorMessage = 'Vous devez être connecté pour créer une alerte';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setNotification({
+        open: true,
+        message: errorMessage,
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleNewAlertClick = () => {
+    try {
+      // Vérifier l'authentification avant d'ouvrir le modal
+      ensureAuthenticated('créer une nouvelle alerte');
+      setOpenModal(true);
+    } catch (error) {
+      console.error('❌ Utilisateur non authentifié:', error);
+      setNotification({
+        open: true,
+        message: 'Vous devez être connecté pour créer une alerte',
+        severity: 'error'
+      });
+    }
   };
 
   const handleRowClick = (alert, navigate) => {
     navigate(`/alerts/${alert.id}`);
+  };
+
+  const handleCloseNotification = () => {
+    setNotification({ ...notification, open: false });
   };
 
   return (
@@ -113,7 +177,7 @@ export default function Alerts() {
           color="primary"
           size="large"
           startIcon={<Add />}
-          onClick={() => setOpenModal(true)}
+          onClick={handleNewAlertClick}
           sx={{
             borderRadius: 2,
             textTransform: 'none',
@@ -179,6 +243,22 @@ export default function Alerts() {
           }
         ]}
       />
+
+      {/* Notifications */}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={handleCloseNotification} 
+          severity={notification.severity}
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </>
   );
 }

@@ -1,39 +1,335 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { MsalProvider, useMsal } from '@azure/msal-react';
+import { PublicClientApplication, InteractionStatus } from '@azure/msal-browser';
 
 const AuthContext = createContext();
 
-export function AuthProvider({ children }) {
+// Configuration MSAL centralisée
+const msalConfig = {
+  auth: {
+    clientId: process.env.REACT_APP_AZURE_CLIENT_ID,
+    authority: `https://login.microsoftonline.com/${process.env.REACT_APP_AZURE_TENANT_ID}`,
+    redirectUri:  window.location.origin // Adaptatif dev/prod
+  },
+  cache: {
+    cacheLocation: 'localStorage', // Persistance entre sessions
+    storeAuthStateInCookie: false
+  }
+};
+
+// Scopes pour Microsoft Graph
+const loginRequest = {
+  scopes: ['User.Read','GroupMember.Read.All']
+};
+
+// Instance MSAL unique
+const msalInstance = new PublicClientApplication(msalConfig);
+
+// Composant interne qui utilise useMsal()
+function AuthProviderInternal({ children }) {
+  const { instance, inProgress, accounts } = useMsal();
   const [authData, setAuthData] = useState({
     isAuthenticated: false,
     email: '',
-    residenceId: null
+    name: '',
+    userId: '',
+    tenantId: '',
+    residenceId: null,
+    accessToken: null,
+    isLoading: true // Important pour éviter les redirections prématurées
   });
 
-  const login = (email, password, residenceId) => {
-    console.log('Login with', email, password, residenceId);
+  // Vérifier l'état d'authentification au démarrage
+  useEffect(() => {
+    initializeAuth();
+  }, []);
 
-    setAuthData({
-      isAuthenticated: true,
-      email,
-      residenceId
-    });
+  // Fonction d'initialisation robuste
+  const initializeAuth = async () => {
+    try {
+      console.log('🔄 Initialisation de l\'authentification MSAL...');
+      
+      // Vérifier si une interaction est déjà en cours
+      if (inProgress === InteractionStatus.InteractionInProgress) {
+        console.warn('⚠️ Une interaction est déjà en cours. Initialisation différée temporairement.');
+        return;
+      }
+      
+      // Attendre que MSAL soit complètement initialisé
+      await instance.initialize();
+      console.log('✅ MSAL initialisé');
+      
+      // Récupérer les comptes de manière sécurisée
+      const allAccounts = instance.getAllAccounts();
+      console.log(`👥 Comptes MSAL trouvés: ${allAccounts?.length || 0}`);
+      
+      // Si aucun compte valide
+      if (!allAccounts || allAccounts.length === 0) {
+        console.log('ℹ️ Aucun compte MSAL - État non authentifié');
+        setAuthData({
+          isAuthenticated: false,
+          email: '',
+          name: '',
+          userId: '',
+          tenantId: '',
+          residenceId: null,
+          accessToken: null,
+          isLoading: false
+        });
+        return;
+      }
+      
+      // Prendre le premier compte
+      const account = allAccounts[0];
+      console.log(`👤 Utilisation du compte: ${account.username}`);
+      
+      try {
+        // Tenter de récupérer un token silencieusement
+        console.log('🔄 Tentative de récupération silencieuse du token...');
+        
+        const tokenRequest = {
+          scopes: ['User.Read','GroupMember.Read.All'],
+          account: account
+        };
+        
+        const response = await instance.acquireTokenSilent(tokenRequest);
+        
+        console.log('✅ Token récupéré silencieusement');
+        console.log('🎯 Access token disponible');
+        
+        // Récupérer les infos utilisateur via Microsoft Graph
+        let userInfo = null;
+        try {
+          const graphResponse = await fetch('https://graph.microsoft.com/v1.0/me', {
+            headers: {
+              'Authorization': `Bearer ${response.accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (graphResponse.ok) {
+            userInfo = await graphResponse.json();
+            console.log('📋 Infos Microsoft Graph récupérées');
+            console.log('👤 Utilisateur:', userInfo.displayName);
+            console.log('🏢 Département:', userInfo.department);
+            console.log('📍 Localisation:', userInfo.officeLocation);
+          }
+        } catch (graphError) {
+          console.log('⚠️ Erreur Microsoft Graph (non bloquante):', graphError.message);
+        }
+        
+        // Restaurer l'état d'authentification
+        setAuthData({
+          isAuthenticated: true,
+          email: account.username,
+          name: userInfo?.displayName || account.name || account.username,
+          userId: account.homeAccountId,
+          tenantId: account.tenantId,
+          residenceId: localStorage.getItem('residenceId') || '1',
+          accessToken: response.accessToken,
+          isLoading: false
+        });
+        
+        console.log(`✅ Session restaurée pour: ${account.username}`);
+        
+      } catch (tokenError) {
+        console.log(`⚠️ Impossible de récupérer le token: ${tokenError.errorCode || tokenError.message}`);
+        
+        // Token expiré ou invalide - nettoyer l'état
+        setAuthData({
+          isAuthenticated: false,
+          email: '',
+          name: '',
+          userId: '',
+          tenantId: '',
+          residenceId: null,
+          accessToken: null,
+          isLoading: false
+        });
+      }
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de l\'initialisation MSAL:', error);
+      
+      // En cas d'erreur critique, s'assurer que l'état est propre
+      setAuthData({
+        isAuthenticated: false,
+        email: '',
+        name: '',
+        userId: '',
+        tenantId: '',
+        residenceId: null,
+        accessToken: null,
+        isLoading: false
+      });
+    }
   };
 
-  const logout = () => {
-    setAuthData({
-      isAuthenticated: false,
-      email: '',
-      residenceId: null
-    });
+  // Fonction de login robuste
+  const login = async () => {
+    try {
+      console.log('🔄 Tentative de connexion...');
+      
+      // Vérifier si une interaction est déjà en cours
+      if (inProgress === InteractionStatus.InteractionInProgress) {
+        console.warn('⚠️ Interaction en cours, login() annulé pour éviter une erreur.');
+        return;
+      }
+      
+      // Configuration de la requête de login
+      const loginRequestConfig = {
+        scopes: ['User.Read','GroupMember.Read.All']
+      };
+      
+      console.log('🔄 Ouverture du popup de connexion...');
+      
+      // Effectuer le login popup
+      const response = await instance.loginPopup(loginRequestConfig);
+      
+      console.log('✅ Connexion Azure AD réussie');
+      console.log(`👤 Utilisateur connecté: ${response.account.username}`);
+      console.log('🎯 Access token récupéré');
+      
+      // Récupérer les infos utilisateur via Microsoft Graph
+      let userInfo = null;
+      try {
+        const graphResponse = await fetch('https://graph.microsoft.com/v1.0/me?$select=id,displayName,mail,userPrincipalName,jobTitle,department', {
+          headers: {
+            'Authorization': `Bearer ${response.accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (graphResponse.ok) {
+          userInfo = await graphResponse.json();
+          console.log("USERINFO: ",userInfo)
+        }
+      } catch (graphError) {
+        console.log('⚠️ Erreur Microsoft Graph après login (non bloquante):', graphError.message);
+      }
+      
+      // Mettre à jour l'état d'authentification
+      setAuthData({
+        isAuthenticated: true,
+        email: response.account.username,
+        name: userInfo?.displayName || response.account.name || response.account.username,
+        userId: response.account.homeAccountId,
+        tenantId: response.account.tenantId,
+        residenceId: '1', // Valeur par défaut, à adapter selon vos règles métier
+        accessToken: response.accessToken,
+        isLoading: false
+      });
+      
+      // Persister la résidence
+      localStorage.setItem('residenceId', '1');
+      
+      console.log('✅ État d\'authentification mis à jour');
+      return response;
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la connexion:', error);
+      
+      // S'assurer que le loading est désactivé en cas d'erreur
+      setAuthData(prev => ({ ...prev, isLoading: false }));
+      
+      // Relancer l'erreur pour que les composants puissent la gérer
+      throw error;
+    }
+  };
+
+  // Fonction de déconnexion
+  const logout = async () => {
+    try {
+      console.log('🔄 Déconnexion en cours...');
+      
+      await instance.logoutRedirect({
+        postLogoutRedirectUri: window.location.origin
+      });
+      
+      // ⚠️ Le setAuthData ne sera pas exécuté car le navigateur sera redirigé
+      // Il faut juste s'assurer que au retour la page fait bien un "initializeAuth" propre
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la déconnexion:', error);
+      // Fallback au cas où
+      setAuthData({
+        isAuthenticated: false,
+        email: '',
+        name: '',
+        userId: '',
+        tenantId: '',
+        residenceId: null,
+        accessToken: null,
+        isLoading: false
+      });
+    }
+  };
+  
+
+  // Fonction getValidToken mise à jour
+  const getValidToken = async () => {
+    if (!authData.isAuthenticated) {
+      throw new Error('Utilisateur non authentifié');
+    }
+
+    try {
+      const allAccounts = instance.getAllAccounts();
+      if (!allAccounts || allAccounts.length === 0) {
+        throw new Error('Aucun compte MSAL trouvé');
+      }
+
+      const account = instance.getActiveAccount() || allAccounts[0];
+      
+      const tokenRequest = {
+        scopes: ['User.Read','GroupMember.Read.All'],
+        account: account
+      };
+
+      const response = await instance.acquireTokenSilent(tokenRequest);
+
+      // Mettre à jour le token dans l'état si nécessaire
+      if (response.accessToken !== authData.accessToken) {
+        setAuthData(prev => ({ ...prev, accessToken: response.accessToken }));
+      }
+
+      return response.accessToken;
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la récupération du token:', error);
+      throw error;
+    }
+  };
+
+  const contextValue = {
+    ...authData,
+    login,
+    logout,
+    getValidToken,
+    msalInstance: instance
   };
 
   return (
-    <AuthContext.Provider value={{ ...authData, login, logout }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
 }
 
+// AuthProvider principal qui wrappe avec MsalProvider
+export function AuthProvider({ children }) {
+  return (
+    <MsalProvider instance={msalInstance}>
+      <AuthProviderInternal>
+        {children}
+      </AuthProviderInternal>
+    </MsalProvider>
+  );
+}
+
 export function useAuthContext() {
-  return useContext(AuthContext);
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuthContext doit être utilisé dans un AuthProvider');
+  }
+  return context;
 }

@@ -1,10 +1,25 @@
 import React from 'react';
 import { Outlet, Link } from 'react-router-dom';
-import { Drawer, List, ListItem, ListItemButton, ListItemText, Box } from '@mui/material';
+import { 
+  Drawer, List, ListItem, ListItemButton, ListItemText, Box, 
+  Typography, Divider, Avatar, IconButton, Tooltip
+} from '@mui/material';
+import { LogoutOutlined, PersonOutline } from '@mui/icons-material';
+import { useAuth } from '../hooks/useAuth';
 
 const drawerWidth = 240;
 
 export default function MainLayout() {
+  const { name, email, logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Erreur lors de la déconnexion:', error);
+    }
+  };
+
   return (
     <Box sx={{ display: 'flex' }}>
       <Drawer
@@ -15,6 +30,31 @@ export default function MainLayout() {
           [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' },
         }}
       >
+        {/* Header utilisateur */}
+        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+            <Avatar sx={{ mr: 1, bgcolor: 'primary.main' }}>
+              <PersonOutline />
+            </Avatar>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography variant="subtitle2" noWrap title={name}>
+                {name}
+              </Typography>
+              <Typography variant="caption" color="textSecondary" noWrap title={email}>
+                {email}
+              </Typography>
+            </Box>
+          </Box>
+          <Tooltip title="Se déconnecter">
+            <IconButton onClick={handleLogout} size="small">
+              <LogoutOutlined />
+            </IconButton>
+          </Tooltip>
+        </Box>
+
+        <Divider />
+
+        {/* Navigation */}
         <List>
           <ListItem disablePadding>
             <ListItemButton component={Link} to="/">

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button } from '@mui/material';
+import { Button, Alert, Snackbar } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
@@ -58,9 +58,10 @@ const mockPolls = [
 ];
 
 export default function Polls() {
-  const { residenceId } = useAuth();
+  const { residenceId, ensureAuthenticated, authenticatedPost } = useAuth();
   const [openModal, setOpenModal] = useState(false);
   const [polls, setPolls] = useState(mockPolls);
+  const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const navigate = useNavigate();
 
   const columns = [
@@ -71,13 +72,74 @@ export default function Polls() {
 
   const filteredPolls = polls.filter(poll => poll.residence_id === residenceId);
 
-  const handleAddPoll = (newPoll) => {
-    const pollWithId = { ...newPoll, id: Date.now(), residence_id: residenceId };
-    setPolls(prev => [...prev, pollWithId]);
+  const handleAddPoll = async (newPoll) => {
+    try {
+      // Vérifier l'authentification avant de procéder
+      ensureAuthenticated('créer un nouveau sondage');
+      
+      console.log('✅ Utilisateur authentifié, création du sondage...');
+      
+      // Utiliser le middleware pour une action authentifiée
+      const result = await authenticatedPost('/api/polls', newPoll);
+      
+      console.log('✅ Sondage créé avec succès:', result);
+      
+      // Ajouter le sondage à l'état local (simulation)
+      const pollWithId = { 
+        ...newPoll, 
+        id: Date.now(), 
+        residence_id: residenceId 
+      };
+      setPolls(prev => [...prev, pollWithId]);
+      
+      // Fermer le modal et afficher une notification
+      setOpenModal(false);
+      setNotification({
+        open: true,
+        message: 'Sondage créé avec succès !',
+        severity: 'success'
+      });
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la création du sondage:', error);
+      
+      let errorMessage = 'Erreur lors de la création du sondage';
+      
+      if (error.code === 'UNAUTHENTICATED') {
+        errorMessage = 'Vous devez être connecté pour créer un sondage';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setNotification({
+        open: true,
+        message: errorMessage,
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleNewPollClick = () => {
+    try {
+      // Vérifier l'authentification avant d'ouvrir le modal
+      ensureAuthenticated('créer un nouveau sondage');
+      setOpenModal(true);
+    } catch (error) {
+      console.error('❌ Utilisateur non authentifié:', error);
+      setNotification({
+        open: true,
+        message: 'Vous devez être connecté pour créer un sondage',
+        severity: 'error'
+      });
+    }
   };
 
   const handleRowClick = (poll, navigate) => {
     navigate(`/polls/${poll.id}`);
+  };
+
+  const handleCloseNotification = () => {
+    setNotification({ ...notification, open: false });
   };
 
   return (
@@ -89,7 +151,7 @@ export default function Polls() {
           color="primary"
           size="large"
           startIcon={<Add />}
-          onClick={() => setOpenModal(true)}
+          onClick={handleNewPollClick}
           sx={{
             borderRadius: 2,
             textTransform: 'none',
@@ -136,6 +198,22 @@ export default function Polls() {
           },
         ]}
       />
+
+      {/* Notifications */}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={handleCloseNotification} 
+          severity={notification.severity}
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </>
   );
 }

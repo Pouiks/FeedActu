@@ -1,6 +1,7 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
+import { Box, CircularProgress, Typography } from '@mui/material';
 import Login from './pages/Login';
 import MainLayout from './components/MainLayout';
 import Dashboard from './pages/Dashboard';
@@ -19,15 +20,42 @@ import EventsCalendar from './pages/EventsCalendar';
 
 
 function App() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
 
-  // Wrapper pour protéger les routes
+  // Wrapper pour protéger les routes avec middleware de vérification
   const ProtectedRoute = ({ children }) => {
+    console.log('🛡️ ProtectedRoute - isLoading:', isLoading, 'isAuthenticated:', isAuthenticated);
+    
+    // Pendant le chargement, afficher un loader
+    if (isLoading) {
+      return (
+        <Box
+          display="flex"
+          flexDirection="column"
+          justifyContent="center"
+          alignItems="center"
+          minHeight="100vh"
+          bgcolor="#f5f5f5"
+        >
+          <CircularProgress size={50} sx={{ mb: 2 }} />
+          <Typography variant="h6" color="textSecondary">
+            Chargement de votre session...
+          </Typography>
+        </Box>
+      );
+    }
+    
+    // Si pas authentifié après chargement, rediriger vers login
     if (!isAuthenticated) {
+      console.log('🚫 Utilisateur non authentifié, redirection vers /login');
       return <Navigate to="/login" replace />;
     }
+    
+    console.log('✅ Utilisateur authentifié, affichage du contenu protégé');
     return children;
   };
+
+  console.log('🔄 App render - isLoading:', isLoading, 'isAuthenticated:', isAuthenticated);
 
   return (
 <Routes>

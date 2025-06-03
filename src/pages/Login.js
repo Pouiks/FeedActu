@@ -1,31 +1,70 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { Box, Button, TextField, Typography, Paper } from '@mui/material';
+import { Box, Button, Typography, Paper, Alert, CircularProgress } from '@mui/material';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  // Rediriger si déjà connecté
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      console.log('✅ Utilisateur déjà connecté, redirection vers dashboard');
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, isLoading, navigate]);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleAzureLogin = async () => {
+    setLoginLoading(true);
+    setError('');
 
-    const data = {
-      email: email,
-      password: password,
-      residence_id: '1' // valeur temporaire pour test
-    };
-
-    console.log('Login with', data.email, data.password, data.residence_id);
-
-    login(data.email, data.password, data.residence_id);
-
-    // Redirection vers la page d'accueil
-    navigate('/');
+    try {
+      console.log('🔄 Tentative de connexion Azure AD...');
+      await login();
+      console.log('✅ Connexion réussie, redirection...');
+      navigate('/', { replace: true });
+    } catch (error) {
+      console.error('❌ Erreur lors de la connexion:', error);
+      
+      // Gestion des erreurs spécifiques
+      if (error.errorCode === 'user_cancelled') {
+        setError('Connexion annulée par l\'utilisateur');
+      } else if (error.errorCode === 'access_denied') {
+        setError('Accès refusé. Vérifiez vos permissions.');
+      } else if (error.errorCode === 'popup_window_error') {
+        setError('Erreur de popup. Vérifiez que les popups ne sont pas bloquées.');
+      } else {
+        setError(`Erreur de connexion: ${error.errorMessage || error.message || 'Erreur inconnue'}`);
+      }
+    } finally {
+      setLoginLoading(false);
+    }
   };
+
+  // Afficher un loader pendant la vérification de l'état d'auth
+  if (isLoading) {
+    return (
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="100vh"
+        bgcolor="#f5f5f5"
+      >
+        <Paper elevation={3} sx={{ padding: 4, width: 400 }}>
+          <Box display="flex" flexDirection="column" alignItems="center">
+            <CircularProgress size={40} sx={{ mb: 2 }} />
+            <Typography variant="h6" color="textSecondary">
+              Vérification de votre session...
+            </Typography>
+          </Box>
+        </Paper>
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -35,39 +74,62 @@ export default function Login() {
       minHeight="100vh"
       bgcolor="#f5f5f5"
     >
-      <Paper elevation={3} sx={{ padding: 4, width: 350 }}>
-        <Typography variant="h5" component="h1" gutterBottom>
-          Connexion au CMS
+      <Paper elevation={3} sx={{ padding: 4, width: 400 }}>
+        <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ mb: 1 }}>
+          FeedActu
         </Typography>
-        <form onSubmit={handleSubmit}>
-          <TextField
-            label="Adresse email"
-            type="email"
-            fullWidth
-            margin="normal"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <TextField
-            label="Mot de passe"
-            type="password"
-            fullWidth
-            margin="normal"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-            fullWidth
-            sx={{ marginTop: 2 }}
-          >
-            Se connecter
-          </Button>
-        </form>
+        
+        <Typography variant="h6" component="h2" gutterBottom align="center" color="textSecondary" sx={{ mb: 3 }}>
+          Gestion de communication résidentielle
+        </Typography>
+        
+        <Typography variant="body2" color="textSecondary" align="center" sx={{ mb: 4 }}>
+          Connectez-vous avec votre compte Microsoft pour accéder à votre espace de gestion
+        </Typography>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
+
+        <Button
+          variant="contained"
+          color="primary"
+          fullWidth
+          size="large"
+          onClick={handleAzureLogin}
+          disabled={loginLoading}
+          sx={{
+            py: 1.5,
+            fontSize: '1.1rem',
+            textTransform: 'none',
+            borderRadius: 2,
+            fontWeight: 600,
+            boxShadow: 2,
+            '&:hover': {
+              boxShadow: 4,
+              transform: 'translateY(-1px)'
+            },
+            '&:disabled': {
+              transform: 'none'
+            },
+            transition: 'all 0.2s ease-in-out'
+          }}
+        >
+          {loginLoading ? (
+            <>
+              <CircularProgress size={20} sx={{ mr: 2, color: 'white' }} />
+              Connexion en cours...
+            </>
+          ) : (
+            'Se connecter avec mon compte'
+          )}
+        </Button>
+
+        <Typography variant="caption" color="textSecondary" align="center" sx={{ mt: 3, display: 'block' }}>
+          Authentification sécurisée via Azure Active Directory
+        </Typography>
       </Paper>
     </Box>
   );

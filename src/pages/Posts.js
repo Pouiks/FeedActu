@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button } from '@mui/material';
+import { Button, Alert, Snackbar } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
@@ -70,9 +70,10 @@ const mockPosts = [
 ];
 
 export default function Posts() {
-  const { residenceId } = useAuth();
+  const { residenceId, ensureAuthenticated, authenticatedPost } = useAuth();
   const [openModal, setOpenModal] = useState(false);
   const [posts, setPosts] = useState(mockPosts);
+  const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const navigate = useNavigate();
 
   const columns = [
@@ -84,13 +85,74 @@ export default function Posts() {
 
   const filteredPosts = posts.filter(post => post.residence_id === residenceId);
 
-  const handleAddPost = (newPost) => {
-    const postWithId = { ...newPost, id: Date.now(), residence_id: residenceId };
-    setPosts(prev => [...prev, postWithId]);
+  const handleAddPost = async (newPost) => {
+    try {
+      // Vérifier l'authentification avant de procéder
+      ensureAuthenticated('créer un nouveau post');
+      
+      console.log('✅ Utilisateur authentifié, création du post...');
+      
+      // Utiliser le middleware pour une action authentifiée
+      const result = await authenticatedPost('/api/posts', newPost);
+      
+      console.log('✅ Post créé avec succès:', result);
+      
+      // Ajouter le post à l'état local (simulation)
+      const postWithId = { 
+        ...newPost, 
+        id: Date.now(), 
+        residence_id: residenceId 
+      };
+      setPosts(prev => [...prev, postWithId]);
+      
+      // Fermer le modal et afficher une notification
+      setOpenModal(false);
+      setNotification({
+        open: true,
+        message: 'Post créé avec succès !',
+        severity: 'success'
+      });
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la création du post:', error);
+      
+      let errorMessage = 'Erreur lors de la création du post';
+      
+      if (error.code === 'UNAUTHENTICATED') {
+        errorMessage = 'Vous devez être connecté pour créer un post';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setNotification({
+        open: true,
+        message: errorMessage,
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleNewPostClick = () => {
+    try {
+      // Vérifier l'authentification avant d'ouvrir le modal
+      ensureAuthenticated('créer un nouveau post');
+      setOpenModal(true);
+    } catch (error) {
+      console.error('❌ Utilisateur non authentifié:', error);
+      setNotification({
+        open: true,
+        message: 'Vous devez être connecté pour créer un post',
+        severity: 'error'
+      });
+    }
   };
 
   const handleRowClick = (post, navigate) => {
     navigate(`/posts/${post.id}`);
+  };
+
+  const handleCloseNotification = () => {
+    setNotification({ ...notification, open: false });
   };
 
   return (
@@ -102,7 +164,7 @@ export default function Posts() {
           color="primary"
           size="large"
           startIcon={<Add />}
-          onClick={() => setOpenModal(true)}
+          onClick={handleNewPostClick}
           sx={{
             borderRadius: 2,
             textTransform: 'none',
@@ -169,6 +231,22 @@ export default function Posts() {
           }
         ]}
       />
+
+      {/* Notifications */}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={handleCloseNotification} 
+          severity={notification.severity}
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </>
   );
 }

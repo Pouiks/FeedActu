@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button } from '@mui/material';
+import { Button, Alert, Snackbar } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
@@ -66,9 +66,10 @@ const mockDailyMessages = [
 ];
 
 export default function DailyMessage() {
-  const { residenceId } = useAuth();
+  const { residenceId, ensureAuthenticated, authenticatedPost } = useAuth();
   const [openModal, setOpenModal] = useState(false);
   const [messages, setMessages] = useState(mockDailyMessages);
+  const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const navigate = useNavigate();
 
   const columns = [
@@ -80,13 +81,74 @@ export default function DailyMessage() {
 
   const filteredMessages = messages.filter(msg => msg.residence_id === residenceId);
 
-  const handleAddMessage = (newMessage) => {
-    const messageWithId = { ...newMessage, id: Date.now(), residence_id: residenceId };
-    setMessages(prev => [...prev, messageWithId]);
+  const handleAddMessage = async (newMessage) => {
+    try {
+      // Vérifier l'authentification avant de procéder
+      ensureAuthenticated('créer un nouveau message');
+      
+      console.log('✅ Utilisateur authentifié, création du message...');
+      
+      // Utiliser le middleware pour une action authentifiée
+      const result = await authenticatedPost('/api/daily-messages', newMessage);
+      
+      console.log('✅ Message créé avec succès:', result);
+      
+      // Ajouter le message à l'état local (simulation)
+      const messageWithId = { 
+        ...newMessage, 
+        id: Date.now(), 
+        residence_id: residenceId 
+      };
+      setMessages(prev => [...prev, messageWithId]);
+      
+      // Fermer le modal et afficher une notification
+      setOpenModal(false);
+      setNotification({
+        open: true,
+        message: 'Message du jour créé avec succès !',
+        severity: 'success'
+      });
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la création du message:', error);
+      
+      let errorMessage = 'Erreur lors de la création du message';
+      
+      if (error.code === 'UNAUTHENTICATED') {
+        errorMessage = 'Vous devez être connecté pour créer un message';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setNotification({
+        open: true,
+        message: errorMessage,
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleNewMessageClick = () => {
+    try {
+      // Vérifier l'authentification avant d'ouvrir le modal
+      ensureAuthenticated('créer un nouveau message');
+      setOpenModal(true);
+    } catch (error) {
+      console.error('❌ Utilisateur non authentifié:', error);
+      setNotification({
+        open: true,
+        message: 'Vous devez être connecté pour créer un message',
+        severity: 'error'
+      });
+    }
   };
 
   const handleRowClick = (message, navigate) => {
     navigate(`/daily-messages/${message.id}`);
+  };
+
+  const handleCloseNotification = () => {
+    setNotification({ ...notification, open: false });
   };
 
   return (
@@ -98,7 +160,7 @@ export default function DailyMessage() {
           color="primary"
           size="large"
           startIcon={<Add />}
-          onClick={() => setOpenModal(true)}
+          onClick={handleNewMessageClick}
           sx={{
             borderRadius: 2,
             textTransform: 'none',
@@ -151,6 +213,22 @@ export default function DailyMessage() {
           }
         ]}
       />
+
+      {/* Notifications */}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={handleCloseNotification} 
+          severity={notification.severity}
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </>
   );
 }
