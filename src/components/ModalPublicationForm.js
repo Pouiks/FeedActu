@@ -8,6 +8,8 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { fr } from 'date-fns/locale';
 import RichTextEditor from './RichTextEditor';
+import ResidenceTagSelector from './ResidenceTagSelector';
+import { useAuth } from '../hooks/useAuth';
 
 const style = {
   position: 'absolute',
@@ -25,12 +27,30 @@ const style = {
 };
 
 export default function ModalPublicationForm({ open, handleClose, onSubmit, entityName, fields, initialValues = {} }) {
+  const { authorizedResidences } = useAuth();
   const [formData, setFormData] = useState({});
   const [pollAnswers, setPollAnswers] = useState(['']);
   const [publishLater, setPublishLater] = useState(false);
   const [publishDateTime, setPublishDateTime] = useState(new Date());
+  const [selectedResidences, setSelectedResidences] = useState([]);
   const [errors, setErrors] = useState({});
   const isFirstOpen = useRef(true);
+
+  // Validation de sécurité pour les résidences
+  const validateResidencesSecurity = (residenceIds) => {
+    if (!authorizedResidences || !residenceIds || residenceIds.length === 0) {
+      return [];
+    }
+    
+    const authorizedIds = authorizedResidences.map(res => res.residenceId);
+    const validIds = residenceIds.filter(id => authorizedIds.includes(id));
+    
+    if (validIds.length !== residenceIds.length) {
+      console.warn('🚨 SÉCURITÉ: Tentative de publication dans des résidences non autorisées détectée');
+    }
+    
+    return validIds;
+  };
 
   // Initialiser le formulaire avec les valeurs initiales quand le modal s'ouvre
   useEffect(() => {
@@ -38,19 +58,38 @@ export default function ModalPublicationForm({ open, handleClose, onSubmit, enti
       // Ne réinitialiser que si c'est la première ouverture ou si le modal était fermé
       if (isFirstOpen.current || !formData || Object.keys(formData).length === 0) {
         setFormData(initialValues || {});
+        
+        // Auto-sélection de la résidence unique si applicable
+        if (authorizedResidences?.length === 1) {
+          setSelectedResidences([authorizedResidences[0].residenceId]);
+        } else {
+          setSelectedResidences([]);
+        }
+        
         isFirstOpen.current = false;
       }
     } else {
       // Reset quand le modal se ferme pour la prochaine ouverture
       isFirstOpen.current = true;
     }
-  }, [open]);
+  }, [open, authorizedResidences]);
 
   const handleChange = (fieldName, value) => {
     setFormData(prev => ({ ...prev, [fieldName]: value }));
     // Nettoyer l'erreur quand l'utilisateur corrige
     if (errors[fieldName]) {
       setErrors(prev => ({ ...prev, [fieldName]: null }));
+    }
+  };
+
+  const handleResidenceChange = (newResidences) => {
+    // Validation de sécurité avant mise à jour
+    const secureResidences = validateResidencesSecurity(newResidences);
+    setSelectedResidences(secureResidences);
+    
+    // Nettoyer l'erreur de résidences
+    if (errors.residences) {
+      setErrors(prev => ({ ...prev, residences: null }));
     }
   };
 
@@ -75,6 +114,7 @@ export default function ModalPublicationForm({ open, handleClose, onSubmit, enti
   const validateForm = () => {
     const newErrors = {};
     
+    // Validation des champs de formulaire
     fields.forEach(field => {
       if (field.required && !formData[field.name]) {
         newErrors[field.name] = `${field.label} est requis`;
@@ -89,6 +129,14 @@ export default function ModalPublicationForm({ open, handleClose, onSubmit, enti
       }
     }
 
+    // Validation critique des résidences sélectionnées
+    const secureResidences = validateResidencesSecurity(selectedResidences);
+    if (secureResidences.length === 0) {
+      newErrors.residences = 'Vous devez sélectionner au moins une résidence autorisée';
+    } else if (secureResidences.length !== selectedResidences.length) {
+      newErrors.residences = 'Certaines résidences sélectionnées ne sont pas autorisées';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -99,7 +147,18 @@ export default function ModalPublicationForm({ open, handleClose, onSubmit, enti
   };
 
   const handleSave = (status) => {
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      console.warn('🚨 Validation échouée pour la publication');
+      return;
+    }
+
+    // Validation finale de sécurité
+    const finalSecureResidences = validateResidencesSecurity(selectedResidences);
+    if (finalSecureResidences.length === 0) {
+      console.error('🚨 SÉCURITÉ CRITIQUE: Aucune résidence autorisée pour la publication');
+      setErrors({ residences: 'Erreur de sécurité: aucune résidence autorisée' });
+      return;
+    }
 
     const finalPublicationDate = publishLater ? publishDateTime.toISOString() : new Date().toISOString();
 
@@ -109,11 +168,20 @@ export default function ModalPublicationForm({ open, handleClose, onSubmit, enti
         answers: pollAnswers.filter(answer => answer.trim() !== '') 
       }),
       publicationDate: finalPublicationDate,
+      targetResidences: finalSecureResidences, // Nouvelle propriété sécurisée
+      targetResidenceNames: finalSecureResidences.map(id => {
+        const residence = authorizedResidences?.find(r => r.residenceId === id);
+        return residence ? residence.residenceName : `Résidence ${id}`;
+      }),
       status,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      createdBy: 'current-user' // À remplacer par l'ID utilisateur réel
     };
 
-    console.log('Submitting:', newItem);
+    console.log('✅ Publication sécurisée soumise:', {
+      ...newItem,
+      targetResidencesCount: finalSecureResidences.length
+    });
 
     onSubmit(newItem);
     handleClose();
@@ -121,10 +189,11 @@ export default function ModalPublicationForm({ open, handleClose, onSubmit, enti
   };
 
   const resetForm = () => {
-    setFormData(initialValues);
+    setFormData(initialValues || {});
     setPollAnswers(['']);
     setPublishLater(false);
     setPublishDateTime(new Date());
+    setSelectedResidences([]);
     setErrors({});
   };
 
@@ -313,7 +382,17 @@ export default function ModalPublicationForm({ open, handleClose, onSubmit, enti
           </Alert>
         )}
 
-        <Stack spacing={2}>
+        <Stack spacing={3}>
+          {/* Sélecteur de résidences en premier - CRITIQUE POUR LA SÉCURITÉ */}
+          <ResidenceTagSelector
+            value={selectedResidences}
+            onChange={handleResidenceChange}
+            label="Publier dans les résidences"
+            required={true}
+            error={!!errors.residences}
+            helperText={errors.residences || "Sélectionnez les résidences où publier ce contenu"}
+          />
+
           {fields.map(renderField)}
 
           <FormControlLabel
@@ -359,7 +438,7 @@ export default function ModalPublicationForm({ open, handleClose, onSubmit, enti
               onClick={() => handleSave('Publié')}
               disabled={publishLater && !isDateValid()}
             >
-              Publier
+              Publier{selectedResidences.length > 1 ? ` dans ${selectedResidences.length} résidences` : ''}
             </Button>
           </Stack>
         </Stack>

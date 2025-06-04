@@ -6,12 +6,27 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { userResidenceMapping } from '../userResidenceMapping';
 
 export default function DataTable({ title, data = [], columns = [], onRowClick }) {
   const [orderBy, setOrderBy] = useState('');
   const [orderDirection, setOrderDirection] = useState('asc');
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
+
+  // Fonction utilitaire pour récupérer le nom d'une résidence par son ID
+  const getResidenceName = (residenceId) => {
+    // Parcourir le mapping pour trouver le nom de la résidence
+    for (const userEmail in userResidenceMapping) {
+      const residences = userResidenceMapping[userEmail];
+      const residence = residences.find(r => r.residenceId === residenceId);
+      if (residence) {
+        return residence.residenceName;
+      }
+    }
+    // Fallback: afficher les derniers caractères de l'ID
+    return `Résidence ${residenceId.slice(-4)}`;
+  };
 
   const handleSort = (columnId) => {
     if (orderBy === columnId) {
@@ -32,6 +47,72 @@ export default function DataTable({ title, data = [], columns = [], onRowClick }
     const value = item[column.id];
     
     if (!value) return '-';
+
+    // Formatage des résidences de publication - NOUVELLE FONCTIONNALITÉ
+    if (column.id === 'targetResidences' && Array.isArray(value)) {
+      if (value.length === 0) return '-';
+      
+      return (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: 250 }}>
+          {value.map((residenceId, index) => {
+            const residenceName = getResidenceName(residenceId);
+            
+            return (
+              <Chip 
+                key={`${residenceId}-${index}`}
+                label={residenceName}
+                size="small"
+                color="info"
+                variant="outlined"
+                sx={{ 
+                  fontSize: '0.75rem',
+                  height: 24,
+                  '& .MuiChip-label': {
+                    px: 1
+                  }
+                }}
+              />
+            );
+          })}
+          {value.length > 3 && (
+            <Typography variant="caption" color="textSecondary" sx={{ alignSelf: 'center', ml: 0.5 }}>
+              +{value.length - 3}
+            </Typography>
+          )}
+        </Box>
+      );
+    }
+
+    // Formatage alternatif si on utilise targetResidenceNames directement
+    if (column.id === 'targetResidenceNames' && Array.isArray(value)) {
+      if (value.length === 0) return '-';
+      
+      return (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: 250 }}>
+          {value.slice(0, 3).map((residenceName, index) => (
+            <Chip 
+              key={`${residenceName}-${index}`}
+              label={residenceName}
+              size="small"
+              color="info"
+              variant="outlined"
+              sx={{ 
+                fontSize: '0.75rem',
+                height: 24,
+                '& .MuiChip-label': {
+                  px: 1
+                }
+              }}
+            />
+          ))}
+          {value.length > 3 && (
+            <Typography variant="caption" color="textSecondary" sx={{ alignSelf: 'center', ml: 0.5 }}>
+              +{value.length - 3}
+            </Typography>
+          )}
+        </Box>
+      );
+    }
 
     // Formatage des statuts avec chips colorés
     if (column.id === 'status') {

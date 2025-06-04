@@ -19,7 +19,9 @@ const mockEvents = [
     maxParticipants: 50,
     publicationDate: '2025-06-22T09:00:00', 
     status: 'Publié', 
-    residence_id: '1' 
+    residence_id: '19f2179b-7d14-f011-998a-6045bd1919a1',
+    targetResidences: ['19f2179b-7d14-f011-998a-6045bd1919a1'],
+    targetResidenceNames: ['ECLA GENEVE ARCHAMPS']
   },
   { 
     id: 2, 
@@ -32,7 +34,9 @@ const mockEvents = [
     maxParticipants: 15,
     publicationDate: '2025-06-20T14:15:00', 
     status: 'Publié', 
-    residence_id: '1' 
+    residence_id: '195644a8-4fa7-ef11-b8e9-6045bd19a503',
+    targetResidences: ['195644a8-4fa7-ef11-b8e9-6045bd19a503', '1b5644a8-4fa7-ef11-b8e9-6045bd19a503'],
+    targetResidenceNames: ['ECLA MASSY-PALAISEAU', 'ECLA NOISY-LE-GRAND']
   },
   { 
     id: 3, 
@@ -45,7 +49,9 @@ const mockEvents = [
     maxParticipants: 8,
     publicationDate: '2025-06-10T10:00:00', 
     status: 'Programmé', 
-    residence_id: '1' 
+    residence_id: '1b5644a8-4fa7-ef11-b8e9-6045bd19a503',
+    targetResidences: ['1b5644a8-4fa7-ef11-b8e9-6045bd19a503'],
+    targetResidenceNames: ['ECLA NOISY-LE-GRAND']
   },
   { 
     id: 4, 
@@ -58,7 +64,9 @@ const mockEvents = [
     maxParticipants: 30,
     publicationDate: '2025-06-25T16:45:00', 
     status: 'Brouillon', 
-    residence_id: '1' 
+    residence_id: '195644a8-4fa7-ef11-b8e9-6045bd19a503',
+    targetResidences: ['195644a8-4fa7-ef11-b8e9-6045bd19a503'],
+    targetResidenceNames: ['ECLA MASSY-PALAISEAU']
   },
   { 
     id: 5, 
@@ -71,7 +79,9 @@ const mockEvents = [
     maxParticipants: 100,
     publicationDate: '2025-06-30T08:00:00', 
     status: 'Brouillon', 
-    residence_id: '1' 
+    residence_id: '19f2179b-7d14-f011-998a-6045bd1919a1',
+    targetResidences: ['19f2179b-7d14-f011-998a-6045bd1919a1', '195644a8-4fa7-ef11-b8e9-6045bd19a503', '1b5644a8-4fa7-ef11-b8e9-6045bd19a503'],
+    targetResidenceNames: ['ECLA GENEVE ARCHAMPS', 'ECLA MASSY-PALAISEAU', 'ECLA NOISY-LE-GRAND']
   },
   { 
     id: 6, 
@@ -84,7 +94,9 @@ const mockEvents = [
     maxParticipants: 40,
     publicationDate: '2025-06-15T12:00:00', 
     status: 'Archivé', 
-    residence_id: '1' 
+    residence_id: '1b5644a8-4fa7-ef11-b8e9-6045bd19a503',
+    targetResidences: ['1b5644a8-4fa7-ef11-b8e9-6045bd19a503'],
+    targetResidenceNames: ['ECLA NOISY-LE-GRAND']
   },
   { 
     id: 7, 
@@ -97,12 +109,14 @@ const mockEvents = [
     maxParticipants: 6,
     publicationDate: '2025-06-28T15:30:00', 
     status: 'Publié', 
-    residence_id: '1' 
+    residence_id: '195644a8-4fa7-ef11-b8e9-6045bd19a503',
+    targetResidences: ['195644a8-4fa7-ef11-b8e9-6045bd19a503'],
+    targetResidenceNames: ['ECLA MASSY-PALAISEAU']
   }
 ];
 
 export default function Events() {
-  const { ensureAuthenticated, authenticatedPost } = useAuth();
+  const { ensureAuthenticated, authenticatedPost, authorizedResidences } = useAuth();
   const { currentResidenceId } = useResidence();
   const [openModal, setOpenModal] = useState(false);
   const [events, setEvents] = useState(mockEvents);
@@ -112,17 +126,33 @@ export default function Events() {
   const columns = [
     { id: 'title', label: 'Titre', sortable: true, searchable: true },
     { id: 'eventDate', label: 'Date de l\'événement', sortable: true, searchable: false },
+    { id: 'targetResidenceNames', label: 'Résidences', sortable: false, searchable: false },
     { id: 'location', label: 'Lieu', sortable: false, searchable: true },
     { id: 'status', label: 'Statut', sortable: true, searchable: false },
   ];
 
-  const filteredEvents = events.filter(event => event.residence_id === currentResidenceId);
+  const filteredEvents = events.filter(event => {
+    return event.targetResidences && event.targetResidences.includes(currentResidenceId);
+  });
 
   const handleAddEvent = async (newEvent) => {
     try {
       ensureAuthenticated('créer un nouvel événement');
       
       console.log('✅ Utilisateur authentifié, création de l\'événement...');
+      console.log('📝 Données de l\'événement:', newEvent);
+      
+      if (!newEvent.targetResidences || newEvent.targetResidences.length === 0) {
+        throw new Error('Aucune résidence sélectionnée pour la publication');
+      }
+
+      const authorizedIds = authorizedResidences?.map(r => r.residenceId) || [];
+      const unauthorizedResidences = newEvent.targetResidences.filter(id => !authorizedIds.includes(id));
+      
+      if (unauthorizedResidences.length > 0) {
+        console.error('🚨 SÉCURITÉ: Tentative de publication dans des résidences non autorisées:', unauthorizedResidences);
+        throw new Error('Vous n\'êtes pas autorisé à publier dans certaines résidences sélectionnées');
+      }
       
       const result = await authenticatedPost('/api/events', newEvent);
       
@@ -130,15 +160,16 @@ export default function Events() {
       
       const eventWithId = { 
         ...newEvent, 
-        id: Date.now(), 
+        id: Date.now(),
         residence_id: currentResidenceId
       };
       setEvents(prev => [...prev, eventWithId]);
       
       setOpenModal(false);
+      const residenceCount = newEvent.targetResidences.length;
       setNotification({
         open: true,
-        message: 'Événement créé avec succès !',
+        message: `Événement créé avec succès et publié dans ${residenceCount} résidence${residenceCount > 1 ? 's' : ''} !`,
         severity: 'success'
       });
       
@@ -164,6 +195,16 @@ export default function Events() {
   const handleNewEventClick = () => {
     try {
       ensureAuthenticated('créer un nouvel événement');
+      
+      if (!authorizedResidences || authorizedResidences.length === 0) {
+        setNotification({
+          open: true,
+          message: 'Vous n\'avez accès à aucune résidence pour publier',
+          severity: 'warning'
+        });
+        return;
+      }
+      
       setOpenModal(true);
     } catch (error) {
       console.error('❌ Utilisateur non authentifié:', error);

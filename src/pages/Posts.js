@@ -16,7 +16,9 @@ const mockPosts = [
     category: 'info', 
     publicationDate: '2024-11-20T08:00:00', 
     status: 'Publié', 
-    residence_id: '1' 
+    residence_id: '19f2179b-7d14-f011-998a-6045bd1919a1',
+    targetResidences: ['19f2179b-7d14-f011-998a-6045bd1919a1'],
+    targetResidenceNames: ['ECLA GENEVE ARCHAMPS']
   },
   { 
     id: 2, 
@@ -26,7 +28,9 @@ const mockPosts = [
     category: 'event', 
     publicationDate: '2024-11-18T14:30:00', 
     status: 'Publié', 
-    residence_id: '1' 
+    residence_id: '195644a8-4fa7-ef11-b8e9-6045bd19a503',
+    targetResidences: ['195644a8-4fa7-ef11-b8e9-6045bd19a503', '1b5644a8-4fa7-ef11-b8e9-6045bd19a503'],
+    targetResidenceNames: ['ECLA MASSY-PALAISEAU', 'ECLA NOISY-LE-GRAND']
   },
   { 
     id: 3, 
@@ -36,7 +40,9 @@ const mockPosts = [
     category: 'urgent', 
     publicationDate: '2024-11-21T18:45:00', 
     status: 'Publié', 
-    residence_id: '1' 
+    residence_id: '19f2179b-7d14-f011-998a-6045bd1919a1',
+    targetResidences: ['19f2179b-7d14-f011-998a-6045bd1919a1', '195644a8-4fa7-ef11-b8e9-6045bd19a503', '1b5644a8-4fa7-ef11-b8e9-6045bd19a503'],
+    targetResidenceNames: ['ECLA GENEVE ARCHAMPS', 'ECLA MASSY-PALAISEAU', 'ECLA NOISY-LE-GRAND']
   },
   { 
     id: 4, 
@@ -46,7 +52,9 @@ const mockPosts = [
     category: 'info', 
     publicationDate: '2024-12-15T10:00:00', 
     status: 'Programmé', 
-    residence_id: '1' 
+    residence_id: '195644a8-4fa7-ef11-b8e9-6045bd19a503',
+    targetResidences: ['195644a8-4fa7-ef11-b8e9-6045bd19a503'],
+    targetResidenceNames: ['ECLA MASSY-PALAISEAU']
   },
   { 
     id: 5, 
@@ -56,7 +64,9 @@ const mockPosts = [
     category: 'event', 
     publicationDate: '2024-11-19T16:20:00', 
     status: 'Brouillon', 
-    residence_id: '1' 
+    residence_id: '1b5644a8-4fa7-ef11-b8e9-6045bd19a503',
+    targetResidences: ['1b5644a8-4fa7-ef11-b8e9-6045bd19a503'],
+    targetResidenceNames: ['ECLA NOISY-LE-GRAND']
   },
   { 
     id: 6, 
@@ -66,12 +76,14 @@ const mockPosts = [
     category: 'info', 
     publicationDate: '2024-10-15T12:00:00', 
     status: 'Archivé', 
-    residence_id: '1' 
+    residence_id: '19f2179b-7d14-f011-998a-6045bd1919a1',
+    targetResidences: ['19f2179b-7d14-f011-998a-6045bd1919a1'],
+    targetResidenceNames: ['ECLA GENEVE ARCHAMPS']
   }
 ];
 
 export default function Posts() {
-  const { ensureAuthenticated, authenticatedPost } = useAuth();
+  const { ensureAuthenticated, authenticatedPost, authorizedResidences } = useAuth();
   const { currentResidenceId } = useResidence();
   const [openModal, setOpenModal] = useState(false);
   const [posts, setPosts] = useState(mockPosts);
@@ -81,11 +93,16 @@ export default function Posts() {
   const columns = [
     { id: 'title', label: 'Titre', sortable: true, searchable: true },
     { id: 'category', label: 'Catégorie', sortable: true, searchable: false },
+    { id: 'targetResidenceNames', label: 'Résidences', sortable: false, searchable: false },
     { id: 'publicationDate', label: 'Date de publication', sortable: true, searchable: false },
     { id: 'status', label: 'Statut', sortable: true, searchable: false },
   ];
 
-  const filteredPosts = posts.filter(post => post.residence_id === currentResidenceId);
+  // Filtrer les posts : afficher ceux qui concernent la résidence actuelle
+  const filteredPosts = posts.filter(post => {
+    // Nouveau filtrage : afficher les posts qui ciblent la résidence actuelle
+    return post.targetResidences && post.targetResidences.includes(currentResidenceId);
+  });
 
   const handleAddPost = async (newPost) => {
     try {
@@ -93,6 +110,21 @@ export default function Posts() {
       ensureAuthenticated('créer un nouveau post');
       
       console.log('✅ Utilisateur authentifié, création du post...');
+      console.log('📝 Données du post:', newPost);
+      
+      // Validation de sécurité des résidences
+      if (!newPost.targetResidences || newPost.targetResidences.length === 0) {
+        throw new Error('Aucune résidence sélectionnée pour la publication');
+      }
+
+      // Vérifier que l'utilisateur a accès à toutes les résidences sélectionnées
+      const authorizedIds = authorizedResidences?.map(r => r.residenceId) || [];
+      const unauthorizedResidences = newPost.targetResidences.filter(id => !authorizedIds.includes(id));
+      
+      if (unauthorizedResidences.length > 0) {
+        console.error('🚨 SÉCURITÉ: Tentative de publication dans des résidences non autorisées:', unauthorizedResidences);
+        throw new Error('Vous n\'êtes pas autorisé à publier dans certaines résidences sélectionnées');
+      }
       
       // Utiliser le middleware pour une action authentifiée
       const result = await authenticatedPost('/api/posts', newPost);
@@ -102,16 +134,17 @@ export default function Posts() {
       // Ajouter le post à l'état local (simulation)
       const postWithId = { 
         ...newPost, 
-        id: Date.now(), 
-        residence_id: currentResidenceId 
+        id: Date.now(),
+        residence_id: currentResidenceId // Garder pour compatibilité ascendante
       };
       setPosts(prev => [...prev, postWithId]);
       
       // Fermer le modal et afficher une notification
       setOpenModal(false);
+      const residenceCount = newPost.targetResidences.length;
       setNotification({
         open: true,
-        message: 'Post créé avec succès !',
+        message: `Post créé avec succès et publié dans ${residenceCount} résidence${residenceCount > 1 ? 's' : ''} !`,
         severity: 'success'
       });
       
@@ -138,6 +171,17 @@ export default function Posts() {
     try {
       // Vérifier l'authentification avant d'ouvrir le modal
       ensureAuthenticated('créer un nouveau post');
+      
+      // Vérifier que l'utilisateur a des résidences autorisées
+      if (!authorizedResidences || authorizedResidences.length === 0) {
+        setNotification({
+          open: true,
+          message: 'Vous n\'avez accès à aucune résidence pour publier',
+          severity: 'warning'
+        });
+        return;
+      }
+      
       setOpenModal(true);
     } catch (error) {
       console.error('❌ Utilisateur non authentifié:', error);
