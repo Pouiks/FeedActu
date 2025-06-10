@@ -1,0 +1,115 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Schéma de validation pour les Alertes",
+    "type": "object",
+    "description": "Structure de validation pour les publications de type Alerte",
+    "required": [
+      "message",
+      "type",
+      "priority", 
+      "targetResidences",
+      "status",
+      "publicationDate",
+      "createdAt",
+      "createdBy"
+    ],
+    "properties": {
+      "id": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "message": {
+        "type": "string",
+        "description": "Message de l'alerte (HTML WYSIWYG)",
+        "minLength": 10,
+        "maxLength": 3000,
+        "contentType": "text/html"
+      },
+      "type": {
+        "type": "string",
+        "enum": ["maintenance", "security", "weather", "water", "other"],
+        "enumLabels": ["Maintenance", "Sécurité", "Météo", "Eau/Gaz/Électricité", "Autre"]
+      },
+      "priority": {
+        "type": "string",
+        "enum": ["low", "normal", "high", "critical"],
+        "enumLabels": ["Faible", "Normale", "Élevée", "Critique"]
+      },
+      "targetResidences": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "targetResidenceNames": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "status": {
+        "type": "string",
+        "enum": ["Brouillon", "Publié", "Programmé", "Résolu", "Archivé"]
+      },
+      "publicationDate": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "publishLater": {
+        "type": "boolean",
+        "default": false
+      },
+      "resolvedAt": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Date de résolution de l'alerte"
+      },
+      "resolvedBy": {
+        "type": "string",
+        "description": "ID de l'utilisateur qui a résolu l'alerte"
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "createdBy": {
+        "type": "string"
+      },
+      "updatedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "alertSettings": {
+        "type": "object",
+        "description": "Paramètres spécifiques aux alertes",
+        "properties": {
+          "sendPushNotification": {
+            "type": "boolean",
+            "default": true
+          },
+          "sendEmail": {
+            "type": "boolean", 
+            "default": false
+          },
+          "autoResolveAfterHours": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 168
+          }
+        }
+      }
+    },
+    "validationRules": {
+      "alertSpecific": {
+        "priority": "Les alertes 'critical' nécessitent une validation immédiate",
+        "type": "Le type doit correspondre au contenu du message",
+        "resolution": "Une alerte 'Résolu' doit avoir resolvedAt et resolvedBy"
+      },
+      "escalation": {
+        "critical": "Les alertes critiques déclenchent automatiquement des notifications",
+        "security": "Les alertes sécurité nécessitent un double contrôle"
+      }
+    }
+  }

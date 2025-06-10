@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { Paper, Typography, Box, Chip, TextField, Button, Stack } from '@mui/material';
 import { DatePicker, TimePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -105,9 +105,15 @@ const mockEvents = [
 
 export default function EventDetail() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const [event, setEvent] = useState(null);
   const [editedEvent, setEditedEvent] = useState({});
   const [isDirty, setIsDirty] = useState(false);
+
+  // Déterminer la page de retour en fonction du paramètre 'from'
+  const fromPage = searchParams.get('from');
+  const backTo = fromPage === 'calendar' ? '/events-calendar' : '/events';
+  const backLabel = fromPage === 'calendar' ? 'Retour au calendrier' : 'Retour aux événements';
 
   useEffect(() => {
     // Simule la récupération de l'événement par ID
@@ -178,7 +184,7 @@ export default function EventDetail() {
   if (!event) {
     return (
       <Box>
-        <BackButton to="/events" label="Retour aux événements" />
+        <BackButton to={backTo} label={backLabel} />
         <Typography>Événement non trouvé</Typography>
       </Box>
     );
@@ -196,7 +202,7 @@ export default function EventDetail() {
 
   return (
     <Box>
-      <BackButton to="/events" label="Retour aux événements" />
+      <BackButton to={backTo} label={backLabel} />
       
       <Paper sx={{ p: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>

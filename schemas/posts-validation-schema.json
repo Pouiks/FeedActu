@@ -1,0 +1,103 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Schéma de validation pour les Posts",
+    "type": "object",
+    "description": "Structure de validation pour les publications de type Post",
+    "required": [
+      "title",
+      "message", 
+      "targetResidences",
+      "status",
+      "publicationDate",
+      "createdAt",
+      "createdBy"
+    ],
+    "properties": {
+      "id": {
+        "type": "integer",
+        "description": "Identifiant unique auto-généré",
+        "minimum": 1
+      },
+      "title": {
+        "type": "string",
+        "description": "Titre du post",
+        "minLength": 3,
+        "maxLength": 200,
+        "example": "Entrez le titre du post..."
+      },
+      "message": {
+        "type": "string",
+        "description": "Contenu HTML du message (WYSIWYG)",
+        "minLength": 10,
+        "maxLength": 5000,
+        "contentType": "text/html"
+      },
+      "imageUrl": {
+        "type": "string",
+        "format": "uri",
+        "description": "URL complète vers une image (optionnel)",
+        "example": "https://exemple.com/image.jpg",
+        "pattern": "^https?://.+\\.(jpg|jpeg|png|gif|webp)$"
+      },
+      "category": {
+        "type": "string",
+        "description": "Catégorie du post",
+        "enum": ["info", "event", "urgent"],
+        "enumLabels": ["Information", "Événement", "Urgent"],
+        "default": "info"
+      },
+      "targetResidences": {
+        "type": "array",
+        "description": "Liste des GUIDs des résidences cibles",
+        "minItems": 1,
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "targetResidenceNames": {
+        "type": "array",
+        "description": "Noms des résidences cibles (affichage)",
+        "items": {
+          "type": "string"
+        }
+      },
+      "status": {
+        "type": "string",
+        "enum": ["Brouillon", "Publié", "Programmé", "Archivé"],
+        "description": "Statut de publication"
+      },
+      "publicationDate": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Date et heure de publication (ISO 8601)"
+      },
+      "publishLater": {
+        "type": "boolean",
+        "description": "Publier plus tard",
+        "default": false
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "createdBy": {
+        "type": "string",
+        "description": "ID de l'utilisateur créateur"
+      },
+      "updatedAt": {
+        "type": "string",
+        "format": "date-time"
+      }
+    },
+    "validationRules": {
+      "security": {
+        "targetResidences": "Doit contenir uniquement des résidences autorisées pour l'utilisateur",
+        "createdBy": "Doit correspondre à l'utilisateur authentifié"
+      },
+      "business": {
+        "publicationDate": "Si publishLater=true, doit être dans le futur",
+        "status": "Les transitions de statut doivent être validées"
+      }
+    }
+  }
