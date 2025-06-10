@@ -10,9 +10,13 @@ import { useResidence } from '../context/ResidenceContext';
 const mockPolls = [
   { 
     id: 1, 
-    question: '<p><strong>Quel horaire préférez-vous pour l\'assemblée générale ?</strong><br>Votre avis compte pour fixer la date qui convient au plus grand nombre.</p>', 
-    answers: ['18h00 - 20h00', '19h00 - 21h00', '20h00 - 22h00', 'Weekend (samedi matin)'],
-    publicationDate: '2024-11-18T10:00:00', 
+    question: '<p>Préférez-vous organiser la <strong>fête des voisins</strong> en mai ou en juin ?</p>', 
+    imageUrl: 'https://via.placeholder.com/400x200/4CAF50/white?text=Fête+des+Voisins',
+    answers: ['En mai (plus frais)', 'En juin (plus d\'activités possibles)', 'Les deux mois me conviennent', 'Je ne participe pas'],
+    allowMultipleAnswers: false,
+    hasDeadline: true,
+    deadlineDate: '2025-03-15T23:59:00',
+    publicationDate: '2024-11-15T10:00:00', 
     status: 'Publié', 
     residence_id: '1' 
   },
@@ -20,6 +24,8 @@ const mockPolls = [
     id: 2, 
     question: '<p>Souhaitez-vous l\'installation de <em>bornes de recharge</em> pour véhicules électriques dans le parking ?</p>', 
     answers: ['Oui, absolument', 'Oui, mais seulement si peu coûteux', 'Non, pas prioritaire', 'Je n\'ai pas d\'avis'],
+    allowMultipleAnswers: false,
+    hasDeadline: false,
     publicationDate: '2024-11-20T14:30:00', 
     status: 'Publié', 
     residence_id: '1' 
@@ -27,7 +33,11 @@ const mockPolls = [
   { 
     id: 3, 
     question: '<p><strong>Quelle activité souhaiteriez-vous voir organisée ?</strong><br>Nous préparons le programme des activités 2025 ! 🎯</p>', 
+    imageUrl: 'https://via.placeholder.com/400x200/2196F3/white?text=Activités+2025',
     answers: ['Cours de sport collectif', 'Ateliers bricolage/jardinage', 'Soirées culturelles', 'Activités enfants', 'Repas partagés'],
+    allowMultipleAnswers: true,
+    hasDeadline: true,
+    deadlineDate: '2025-01-31T23:59:00',
     publicationDate: '2024-12-01T09:00:00', 
     status: 'Programmé', 
     residence_id: '1' 
@@ -36,6 +46,8 @@ const mockPolls = [
     id: 4, 
     question: '<p>Êtes-vous satisfait de la <em>gestion des espaces verts</em> ?</p>', 
     answers: ['Très satisfait', 'Plutôt satisfait', 'Plutôt mécontent', 'Très mécontent'],
+    allowMultipleAnswers: false,
+    hasDeadline: false,
     publicationDate: '2024-11-15T16:45:00', 
     status: 'Brouillon', 
     residence_id: '1' 
@@ -44,6 +56,9 @@ const mockPolls = [
     id: 5, 
     question: '<p>Accepteriez-vous une <strong>légère augmentation</strong> des charges pour améliorer la sécurité (vidéophone, éclairage) ?</p>', 
     answers: ['Oui, tout à fait', 'Oui, selon le montant', 'Non, les charges sont déjà trop élevées'],
+    allowMultipleAnswers: false,
+    hasDeadline: true,
+    deadlineDate: '2024-12-31T23:59:00',
     publicationDate: '2024-10-20T11:30:00', 
     status: 'Archivé', 
     residence_id: '1' 
@@ -51,7 +66,10 @@ const mockPolls = [
   { 
     id: 6, 
     question: '<p>Quel est votre <em>mode de transport principal</em> pour aller au travail ?</p>', 
+    imageUrl: 'https://via.placeholder.com/400x200/9C27B0/white?text=Transport',
     answers: ['Voiture', 'Transports en commun', 'Vélo', 'À pied', 'Télétravail', 'Autre'],
+    allowMultipleAnswers: false,
+    hasDeadline: false,
     publicationDate: '2024-11-25T08:15:00', 
     status: 'Brouillon', 
     residence_id: '1' 
@@ -187,12 +205,41 @@ export default function Polls() {
             type: 'wysiwyg', 
             required: true 
           },
+          {
+            name: 'imageUrl',
+            label: 'Image du sondage (optionnelle)',
+            type: 'url',
+            required: false,
+            placeholder: 'https://exemple.com/image.jpg',
+            helperText: 'URL d\'une image pour illustrer votre sondage'
+          },
           { 
             name: 'answers', 
             label: 'Réponses possibles', 
             type: 'pollAnswers', 
             required: true 
           },
+          {
+            name: 'allowMultipleAnswers',
+            label: 'Autoriser plusieurs réponses par personne',
+            type: 'checkbox',
+            required: false
+          },
+          {
+            name: 'hasDeadline',
+            label: 'Définir une date limite de vote',
+            type: 'checkbox',
+            required: false
+          },
+          {
+            name: 'deadlineDate',
+            label: 'Date limite de vote',
+            type: 'datetime',
+            required: false,
+            conditionalOn: 'hasDeadline',
+            disablePast: true,
+            helperText: 'Après cette date, le sondage sera fermé aux nouveaux votes'
+          }
         ]}
       />
 

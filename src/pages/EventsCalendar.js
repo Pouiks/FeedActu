@@ -1,10 +1,11 @@
 // src/pages/EventsCalendar.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Snackbar } from '@mui/material';
 import ModalPublicationForm from '../components/ModalPublicationForm';
 import { useResidence } from '../context/ResidenceContext';
+import HoverPreview from '../components/HoverPreview';
 
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -21,7 +22,10 @@ const mockEvents = [
     startTime: '18:30', 
     endTime: '20:30',
     location: 'Salle de réunion (RDC)',
+    document: 'ordre-du-jour-ag-2025.pdf',
+    hasParticipantLimit: true,
     maxParticipants: 50,
+    recurrence: 'none',
     publicationDate: '2025-06-22T09:00:00', 
     status: 'Publié', 
     residence_id: '1' 
@@ -34,7 +38,11 @@ const mockEvents = [
     startTime: '19:00', 
     endTime: '20:00',
     location: 'Jardin commun (si beau temps)',
+    hasParticipantLimit: true,
     maxParticipants: 15,
+    recurrence: 'weekly',
+    recurrenceInterval: 7,
+    recurrenceEnd: '2025-09-30',
     publicationDate: '2025-06-20T14:15:00', 
     status: 'Publié', 
     residence_id: '1' 
@@ -47,7 +55,9 @@ const mockEvents = [
     startTime: '14:00', 
     endTime: '16:30',
     location: 'Cuisine commune',
+    hasParticipantLimit: true,
     maxParticipants: 8,
+    recurrence: 'none',
     publicationDate: '2025-06-10T10:00:00', 
     status: 'Programmé', 
     residence_id: '1' 
@@ -60,7 +70,11 @@ const mockEvents = [
     startTime: '20:00', 
     endTime: '22:30',
     location: 'Jardin commun',
+    hasParticipantLimit: true,
     maxParticipants: 30,
+    recurrence: 'monthly',
+    recurrenceInterval: 30,
+    recurrenceEnd: '2025-10-31',
     publicationDate: '2025-06-25T16:45:00', 
     status: 'Brouillon', 
     residence_id: '1' 
@@ -73,7 +87,10 @@ const mockEvents = [
     startTime: '09:00', 
     endTime: '17:00',
     location: 'Parking sous-sol',
+    document: 'reglement-vide-grenier.pdf',
+    hasParticipantLimit: true,
     maxParticipants: 100,
+    recurrence: 'none',
     publicationDate: '2025-06-30T08:00:00', 
     status: 'Brouillon', 
     residence_id: '1' 
@@ -86,7 +103,9 @@ const mockEvents = [
     startTime: '18:00', 
     endTime: '21:00',
     location: 'Hall d\'entrée',
+    hasParticipantLimit: true,
     maxParticipants: 40,
+    recurrence: 'none',
     publicationDate: '2025-06-15T12:00:00', 
     status: 'Archivé', 
     residence_id: '1' 
@@ -99,7 +118,12 @@ const mockEvents = [
     startTime: '10:00', 
     endTime: '12:00',
     location: 'Local vélos',
+    document: 'guide-entretien-velo.pdf',
+    hasParticipantLimit: true,
     maxParticipants: 6,
+    recurrence: 'monthly',
+    recurrenceInterval: 30,
+    recurrenceEnd: '2025-12-31',
     publicationDate: '2025-06-28T15:30:00', 
     status: 'Publié', 
     residence_id: '1' 
@@ -111,9 +135,21 @@ export default function EventsCalendar() {
   const { currentResidenceId } = useResidence();
   const [openModal, setOpenModal] = useState(false);
   const [events, setEvents] = useState(mockEvents);
-  const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
+  const [notification, setNotification] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(null);
+
+  // États pour le hover preview
+  const [hoverPreview, setHoverPreview] = useState({
+    visible: false,
+    event: null,
+    position: { x: 0, y: 0 }
+  });
+  const [hoverTimeout, setHoverTimeout] = useState(null);
 
   console.log('🔄 EventsCalendar rendu - openModal:', openModal, 'selectedDate:', selectedDate);
 
@@ -165,6 +201,137 @@ export default function EventsCalendar() {
       });
     }
   };
+
+  // Gérer le drag & drop des événements
+  const handleEventDrop = (dropInfo) => {
+    try {
+      ensureAuthenticated('déplacer un événement');
+      
+      console.log('🎯 DRAG & DROP détecté !');
+      console.log('📅 Événement déplacé:', dropInfo.event.title);
+      console.log('📅 Ancienne date:', dropInfo.oldEvent.start);
+      console.log('📅 Nouvelle date:', dropInfo.event.start);
+      
+      const eventId = dropInfo.event.id;
+      const newDate = dropInfo.event.start;
+      
+      // Formatage de la nouvelle date
+      const newDateStr = newDate.toISOString().split('T')[0]; // Format YYYY-MM-DD
+      
+      // Mise à jour de l'événement dans l'état local
+      setEvents(prevEvents => {
+        return prevEvents.map(event => {
+          if (event.id.toString() === eventId) {
+            console.log(`✅ Mise à jour événement ${eventId}: ${event.eventDate} → ${newDateStr}`);
+            return {
+              ...event,
+              eventDate: newDateStr
+            };
+          }
+          return event;
+        });
+      });
+      
+      // Afficher une notification de succès
+      setNotification({
+        open: true,
+        message: `Événement "${dropInfo.event.title}" déplacé avec succès !`,
+        severity: 'success'
+      });
+      
+      console.log('✅ Événement mis à jour dans l\'état local');
+      
+      // TODO: Ici vous pourrez plus tard faire l'appel API pour sauvegarder
+      // await updateEventDate(eventId, newDateStr);
+      
+    } catch (error) {
+      console.error('❌ Erreur lors du déplacement:', error);
+      
+      // Annuler le déplacement en cas d'erreur
+      dropInfo.revert();
+      
+      setNotification({
+        open: true,
+        message: 'Erreur lors du déplacement de l\'événement',
+        severity: 'error'
+      });
+    }
+  };
+
+  // Gérer l'affichage du hover preview
+  const handleEventMouseEnter = (mouseEnterInfo) => {
+    // Annuler le timeout de masquage s'il existe
+    if (hoverTimeout) {
+      clearTimeout(hoverTimeout);
+      setHoverTimeout(null);
+    }
+
+    const eventId = mouseEnterInfo.event.id;
+    const eventData = events.find(event => event.id.toString() === eventId);
+    
+    if (eventData) {
+      console.log('🎯 HOVER IN:', eventData.title);
+      
+      setHoverPreview({
+        visible: true,
+        event: eventData,
+        position: {
+          x: mouseEnterInfo.jsEvent.clientX,
+          y: mouseEnterInfo.jsEvent.clientY
+        }
+      });
+
+      // Ajouter un listener pour suivre le mouvement de la souris
+      const handleMouseMove = (e) => {
+        setHoverPreview(prev => ({
+          ...prev,
+          position: {
+            x: e.clientX,
+            y: e.clientY
+          }
+        }));
+      };
+
+      // Ajouter le listener
+      document.addEventListener('mousemove', handleMouseMove);
+      
+      // Stocker la fonction de nettoyage
+      mouseEnterInfo.el._cleanupMouseMove = () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+      };
+    }
+  };
+
+  // Gérer le masquage du hover preview
+  const handleEventMouseLeave = (mouseLeaveInfo) => {
+    console.log('🎯 HOVER OUT:', mouseLeaveInfo.event.title);
+    
+    // Nettoyer le listener de mouvement
+    if (mouseLeaveInfo.el._cleanupMouseMove) {
+      mouseLeaveInfo.el._cleanupMouseMove();
+      delete mouseLeaveInfo.el._cleanupMouseMove;
+    }
+    
+    // Délai avant masquage pour éviter les scintillements
+    const timeout = setTimeout(() => {
+      setHoverPreview({
+        visible: false,
+        event: null,
+        position: { x: 0, y: 0 }
+      });
+    }, 300);
+    
+    setHoverTimeout(timeout);
+  };
+
+  // Nettoyer les timeouts au démontage
+  useEffect(() => {
+    return () => {
+      if (hoverTimeout) {
+        clearTimeout(hoverTimeout);
+      }
+    };
+  }, [hoverTimeout]);
 
   const handleAddEvent = async (newEvent) => {
     try {
@@ -292,6 +459,15 @@ export default function EventsCalendar() {
         </p>
       </div>
 
+      <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#e8f5e8', borderRadius: 4 }}>
+        <p style={{ margin: 0, fontSize: '14px', color: '#2e7d32' }}>
+          🎯 <strong>Nouveau :</strong> Survolez les événements pour voir les détails • Glissez-déposez pour les déplacer ! 
+          <span style={{ fontSize: '12px', fontStyle: 'italic' }}>
+            (Les événements archivés ne peuvent pas être déplacés)
+          </span>
+        </p>
+      </div>
+
       <div style={{ marginBottom: 16, padding: 8, backgroundColor: '#e3f2fd', borderRadius: 4 }}>
         <p style={{ margin: 0, fontSize: '12px', color: '#1976d2' }}>
           🐛 <strong>Debug :</strong> openModal: {openModal.toString()}, selectedDate: {selectedDate || 'null'}
@@ -306,6 +482,10 @@ export default function EventsCalendar() {
         dateClick={handleDateClick}
         selectable={true}
         selectMirror={true}
+        editable={true}
+        eventDrop={handleEventDrop}
+        eventMouseEnter={handleEventMouseEnter}
+        eventMouseLeave={handleEventMouseLeave}
         headerToolbar={{
           left: 'prev,next today',
           center: 'title',
@@ -341,6 +521,15 @@ export default function EventsCalendar() {
               break;
           }
           info.el.style.cursor = 'pointer';
+          
+          // Ajouter un indicateur visuel pour le drag & drop
+          if (status !== 'Archivé') {
+            info.el.style.cursor = 'move';
+            info.el.title = `${info.event.title} - Glissez pour déplacer • Survolez pour plus d'infos`;
+          } else {
+            info.el.style.opacity = '0.7';
+            info.el.title = `${info.event.title} - Archivé (non déplaçable) • Survolez pour plus d'infos`;
+          }
         }}
         dayCellDidMount={(info) => {
           info.el.style.cursor = 'pointer';
@@ -355,6 +544,13 @@ export default function EventsCalendar() {
             info.el.style.backgroundColor = '';
           });
         }}
+      />
+
+      {/* Hover Preview */}
+      <HoverPreview
+        event={hoverPreview.event}
+        position={hoverPreview.position}
+        visible={hoverPreview.visible}
       />
 
       <ModalPublicationForm
@@ -404,11 +600,57 @@ export default function EventsCalendar() {
             placeholder: 'Salle commune, Jardin, Hall d\'entrée...'
           },
           {
+            name: 'document',
+            label: 'Document PDF (optionnel)',
+            type: 'file',
+            required: false,
+            accept: '.pdf',
+            helperText: 'Ajoutez un document PDF pour plus d\'informations (règlement, plan, etc.)'
+          },
+          {
+            name: 'hasParticipantLimit',
+            label: 'Limiter le nombre de participants',
+            type: 'checkbox',
+            required: false
+          },
+          {
             name: 'maxParticipants',
             label: 'Nombre maximum de participants',
             type: 'number',
             required: false,
-            placeholder: '20'
+            placeholder: '20',
+            conditionalOn: 'hasParticipantLimit',
+            helperText: 'Une fois cette limite atteinte, les inscriptions seront fermées'
+          },
+          {
+            name: 'recurrence',
+            label: 'Récurrence de l\'événement',
+            type: 'select',
+            required: false,
+            options: [
+              { value: 'none', label: 'Événement unique' },
+              { value: 'daily', label: 'Répéter tous les X jours' },
+              { value: 'weekly', label: 'Répéter chaque semaine' },
+              { value: 'monthly', label: 'Répéter chaque mois' }
+            ]
+          },
+          {
+            name: 'recurrenceInterval',
+            label: 'Répéter tous les (nombre de jours)',
+            type: 'number',
+            required: false,
+            placeholder: '7',
+            conditionalOn: 'recurrence',
+            helperText: 'Pour "tous les X jours", indiquez le nombre de jours entre chaque occurrence'
+          },
+          {
+            name: 'recurrenceEnd',
+            label: 'Date de fin de récurrence',
+            type: 'date',
+            required: false,
+            conditionalOn: 'recurrence',
+            disablePast: true,
+            helperText: 'Jusqu\'à quelle date répéter cet événement ?'
           }
         ]}
       />

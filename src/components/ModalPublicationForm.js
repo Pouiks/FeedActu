@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Modal, Box, Typography, TextField, Button, Stack, FormControlLabel, 
-  Checkbox, Alert, MenuItem, FormControl, InputLabel, Select
+  Checkbox, Alert, MenuItem, FormControl, InputLabel, Select, Input
 } from '@mui/material';
 import { DatePicker, TimePicker, DateTimePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -9,6 +9,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { fr } from 'date-fns/locale';
 import RichTextEditor from './RichTextEditor';
 import ResidenceTagSelector from './ResidenceTagSelector';
+import MobilePreview from './MobilePreview';
 import { useAuth } from '../hooks/useAuth';
 
 const style = {
@@ -26,7 +27,14 @@ const style = {
   borderRadius: 2
 };
 
-export default function ModalPublicationForm({ open, handleClose, onSubmit, entityName, fields, initialValues = {} }) {
+export default function ModalPublicationForm({ 
+  open = false, 
+  handleClose = () => {}, 
+  onSubmit = () => {}, 
+  entityName = '', 
+  fields = [], 
+  initialValues = {} 
+}) {
   const { authorizedResidences } = useAuth();
   const [formData, setFormData] = useState({});
   const [pollAnswers, setPollAnswers] = useState(['']);
@@ -34,6 +42,7 @@ export default function ModalPublicationForm({ open, handleClose, onSubmit, enti
   const [publishDateTime, setPublishDateTime] = useState(new Date());
   const [selectedResidences, setSelectedResidences] = useState([]);
   const [errors, setErrors] = useState({});
+  const [previewOpen, setPreviewOpen] = useState(false);
   const isFirstOpen = useRef(true);
 
   // Validation de sécurité pour les résidences
@@ -197,7 +206,67 @@ export default function ModalPublicationForm({ open, handleClose, onSubmit, enti
     setErrors({});
   };
 
+  // Générer les données pour la preview mobile
+  const getPreviewData = () => {
+    const previewData = {
+      ...formData,
+      ...(fields.some(f => f.type === 'pollAnswers') && { 
+        answers: pollAnswers.filter(answer => answer.trim() !== '') 
+      }),
+      publicationDate: publishLater ? publishDateTime.toISOString() : new Date().toISOString(),
+      status: 'Aperçu'
+    };
+    
+    return previewData;
+  };
+
+  // Ouvrir l'aperçu mobile
+  const handlePreview = () => {
+    // Validation basique avant preview
+    if (!formData.title && !formData.question && !formData.message) {
+      setErrors({ 
+        ...errors,
+        preview: 'Veuillez remplir au moins le titre, la question ou le message pour voir l\'aperçu' 
+      });
+      return;
+    }
+    
+    // Nettoyer l'erreur de preview si elle existe
+    if (errors.preview) {
+      const { preview, ...otherErrors } = errors;
+      setErrors(otherErrors);
+    }
+    
+    setPreviewOpen(true);
+  };
+
+  // Fonction pour vérifier si un champ doit être affiché (logique conditionnelle)
+  const shouldShowField = (field) => {
+    if (!field.conditionalOn) return true;
+    
+    const conditionField = fields.find(f => f.name === field.conditionalOn);
+    if (!conditionField) return true;
+    
+    // Pour les checkboxes, vérifier si elle est cochée
+    if (conditionField.type === 'checkbox') {
+      return formData[field.conditionalOn] === true;
+    }
+    
+    // Pour les selects, vérifier si la valeur n'est pas 'none' ou vide
+    if (conditionField.type === 'select') {
+      const value = formData[field.conditionalOn];
+      return value && value !== 'none' && value !== '';
+    }
+    
+    return true;
+  };
+
   const renderField = (field) => {
+    // Vérifier si le champ doit être affiché
+    if (!shouldShowField(field)) {
+      return null;
+    }
+
     switch (field.type) {
       case 'text':
       case 'email':
@@ -218,6 +287,63 @@ export default function ModalPublicationForm({ open, handleClose, onSubmit, enti
             rows={field.rows || 1}
             fullWidth
           />
+        );
+
+      case 'checkbox':
+        return (
+          <FormControlLabel
+            key={field.name}
+            control={
+              <Checkbox
+                checked={formData[field.name] || false}
+                onChange={(e) => handleChange(field.name, e.target.checked)}
+              />
+            }
+            label={field.label}
+            sx={{ alignItems: 'flex-start', mt: 1 }}
+          />
+        );
+
+      case 'file':
+        return (
+          <Box key={field.name}>
+            <Typography variant="subtitle1" gutterBottom>
+              {field.label} {field.required && <span style={{color: 'red'}}>*</span>}
+            </Typography>
+            <Input
+              type="file"
+              inputProps={{ 
+                accept: field.accept || '*',
+                style: { padding: '8px 0' }
+              }}
+              onChange={(e) => {
+                const file = e.target.files[0];
+                if (file) {
+                  // Pour l'instant, on stocke juste le nom du fichier
+                  // Plus tard, ça sera géré par l'upload vers l'API
+                  handleChange(field.name, file.name);
+                  console.log('📎 Fichier sélectionné:', file.name, file.size, 'bytes');
+                }
+              }}
+              fullWidth
+              error={!!errors[field.name]}
+            />
+            {formData[field.name] && (
+              <Typography variant="caption" color="primary" sx={{ mt: 0.5, display: 'block' }}>
+                ✓ Fichier sélectionné: {formData[field.name]}
+              </Typography>
+            )}
+            {errors[field.name] && (
+              <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
+                {errors[field.name]}
+              </Typography>
+            )}
+            {field.helperText && !errors[field.name] && (
+              <Typography variant="caption" color="textSecondary" sx={{ mt: 0.5, display: 'block' }}>
+                {field.helperText}
+              </Typography>
+            )}
+          </Box>
         );
 
       case 'select':
@@ -365,84 +491,116 @@ export default function ModalPublicationForm({ open, handleClose, onSubmit, enti
     }
   };
 
+  // Protection contre les props manquants
+  if (!entityName || !Array.isArray(fields)) {
+    console.warn('ModalPublicationForm: Props manquants ou invalides', { entityName, fields });
+    return null;
+  }
+
   return (
-    <Modal
-      open={open}
-      onClose={handleClose}
-      aria-labelledby="modal-publication-title"
-    >
-      <Box sx={style}>
-        <Typography id="modal-publication-title" variant="h6" component="h2" gutterBottom>
-          Nouveau {entityName}
-        </Typography>
+    <>
+      <Modal
+        open={Boolean(open)}
+        onClose={handleClose}
+        aria-labelledby="modal-publication-title"
+        disableEnforceFocus
+        disableAutoFocus
+      >
+        <Box sx={style}>
+          <Typography id="modal-publication-title" variant="h6" component="h2" gutterBottom>
+            Nouveau {entityName}
+          </Typography>
 
-        {Object.keys(errors).length > 0 && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            Veuillez corriger les erreurs avant de continuer
-          </Alert>
-        )}
-
-        <Stack spacing={3}>
-          {/* Sélecteur de résidences en premier - CRITIQUE POUR LA SÉCURITÉ */}
-          <ResidenceTagSelector
-            value={selectedResidences}
-            onChange={handleResidenceChange}
-            label="Publier dans les résidences"
-            required={true}
-            error={!!errors.residences}
-            helperText={errors.residences || "Sélectionnez les résidences où publier ce contenu"}
-          />
-
-          {fields.map(renderField)}
-
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={publishLater}
-                onChange={(e) => setPublishLater(e.target.checked)}
-              />
-            }
-            label="Publier plus tard"
-          />
-
-          {publishLater && (
-            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={fr}>
-              <DateTimePicker
-                label="Date et heure de publication"
-                value={publishDateTime}
-                onChange={(newValue) => setPublishDateTime(newValue)}
-                disablePast
-                ampm={false}
-                slotProps={{ 
-                  textField: { 
-                    required: true,
-                    helperText: "Doit être dans le futur",
-                    fullWidth: true
-                  }
-                }}
-              />
-            </LocalizationProvider>
+          {Object.keys(errors).length > 0 && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              Veuillez corriger les erreurs avant de continuer
+              {errors.preview && (
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  • {errors.preview}
+                </Typography>
+              )}
+            </Alert>
           )}
 
-          {!isDateValid() && (
-            <Typography color="error">La date et l'heure doivent être postérieures à maintenant.</Typography>
-          )}
+          <Stack spacing={3}>
+            {/* Sélecteur de résidences en premier - CRITIQUE POUR LA SÉCURITÉ */}
+            <ResidenceTagSelector
+              value={selectedResidences}
+              onChange={handleResidenceChange}
+              label="Publier dans les résidences"
+              required={true}
+              error={!!errors.residences}
+              helperText={errors.residences || "Sélectionnez les résidences où publier ce contenu"}
+            />
 
-          <Stack direction="row" spacing={2} justifyContent="flex-end">
-            <Button variant="outlined" onClick={() => handleSave('Brouillon')}>
-              Enregistrer comme Brouillon
-            </Button>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => handleSave('Publié')}
-              disabled={publishLater && !isDateValid()}
-            >
-              Publier{selectedResidences.length > 1 ? ` dans ${selectedResidences.length} résidences` : ''}
-            </Button>
+            {fields.map((field, index) => renderField(field))}
+
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={publishLater}
+                  onChange={(e) => setPublishLater(e.target.checked)}
+                />
+              }
+              label="Publier plus tard"
+            />
+
+            {publishLater && (
+              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={fr}>
+                <DateTimePicker
+                  label="Date et heure de publication"
+                  value={publishDateTime}
+                  onChange={(newValue) => setPublishDateTime(newValue)}
+                  disablePast
+                  ampm={false}
+                  slotProps={{ 
+                    textField: { 
+                      required: true,
+                      helperText: "Doit être dans le futur",
+                      fullWidth: true
+                    }
+                  }}
+                />
+              </LocalizationProvider>
+            )}
+
+            {!isDateValid() && (
+              <Typography color="error">La date et l'heure doivent être postérieures à maintenant.</Typography>
+            )}
+
+            <Stack direction="row" spacing={2} justifyContent="flex-end">
+              <Button 
+                variant="text" 
+                onClick={handlePreview}
+                sx={{ mr: 'auto' }}
+              >
+                📱 Aperçu mobile
+              </Button>
+              <Button variant="outlined" onClick={() => handleSave('Brouillon')}>
+                Enregistrer comme Brouillon
+              </Button>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => handleSave('Publié')}
+                disabled={publishLater && !isDateValid()}
+              >
+                Publier{selectedResidences.length > 1 ? ` dans ${selectedResidences.length} résidences` : ''}
+              </Button>
+            </Stack>
           </Stack>
-        </Stack>
-      </Box>
-    </Modal>
+        </Box>
+      </Modal>
+
+      {/* Composant Preview Mobile - EN DEHORS du Modal principal */}
+      {previewOpen && (
+        <MobilePreview
+          open={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          data={getPreviewData()}
+          type={entityName}
+        />
+      )}
+    </>
   );
 }
