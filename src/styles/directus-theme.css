@@ -1,0 +1,252 @@
+/* Système de thème inspiré de Directus */
+
+/* Variables CSS globales */
+:root {
+  /* Couleurs principales */
+  --theme-primary: #6366f1;
+  --theme-primary-50: #eef2ff;
+  --theme-primary-100: #e0e7ff;
+  --theme-primary-500: #6366f1;
+  --theme-primary-600: #4f46e5;
+  --theme-primary-700: #4338ca;
+  
+  --theme-secondary: #64748b;
+  --theme-success: #10b981;
+  --theme-warning: #f59e0b;
+  --theme-danger: #ef4444;
+  
+  /* Backgrounds */
+  --theme-background-page: #f8fafc;
+  --theme-background-normal: #ffffff;
+  --theme-background-normal-alt: #f1f5f9;
+  --theme-background-subdued: #e2e8f0;
+  --theme-background-accent: #f8fafc;
+  
+  /* Foregrounds */
+  --theme-foreground-normal: #1e293b;
+  --theme-foreground-normal-alt: #475569;
+  --theme-foreground-subdued: #94a3b8;
+  --theme-foreground-inverted: #ffffff;
+  
+  /* Borders */
+  --theme-border-radius: 8px;
+  --theme-border-radius-lg: 12px;
+  --theme-border-subdued: #e2e8f0;
+  --theme-border-normal: #cbd5e1;
+  
+  /* Shadows */
+  --theme-elevation-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --theme-elevation-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --theme-elevation-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --theme-elevation-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --theme-elevation-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  
+  /* Spacing */
+  --theme-form-vertical-gap: 24px;
+  --theme-page-padding: 32px;
+  --theme-card-padding: 24px;
+}
+
+/* Mode sombre */
+[data-theme="dark"] {
+  --theme-background-page: #0f172a;
+  --theme-background-normal: #1e293b;
+  --theme-background-normal-alt: #334155;
+  --theme-background-subdued: #475569;
+  --theme-background-accent: #1e293b;
+  
+  --theme-foreground-normal: #f8fafc;
+  --theme-foreground-normal-alt: #e2e8f0;
+  --theme-foreground-subdued: #94a3b8;
+  
+  --theme-border-subdued: #334155;
+  --theme-border-normal: #475569;
+}
+
+/* Styles de base pour l'application */
+body {
+  background-color: var(--theme-background-page);
+  color: var(--theme-foreground-normal);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Composants de base style Directus */
+.directus-page {
+  padding: var(--theme-page-padding);
+  max-width: 100%;
+}
+
+.directus-card {
+  background: var(--theme-background-normal);
+  border: 1px solid var(--theme-border-subdued);
+  border-radius: var(--theme-border-radius-lg);
+  box-shadow: var(--theme-elevation-sm);
+  padding: var(--theme-card-padding);
+  transition: all 0.2s ease;
+}
+
+.directus-card:hover {
+  box-shadow: var(--theme-elevation-md);
+}
+
+.directus-header {
+  background: var(--theme-background-normal);
+  border-bottom: 1px solid var(--theme-border-subdued);
+  box-shadow: var(--theme-elevation-xs);
+  backdrop-filter: blur(8px);
+}
+
+.directus-sidebar {
+  background: var(--theme-background-normal);
+  border-right: 1px solid var(--theme-border-subdued);
+  box-shadow: var(--theme-elevation-sm);
+}
+
+.directus-button-primary {
+  background: var(--theme-primary);
+  color: var(--theme-foreground-inverted);
+  border: none;
+  border-radius: var(--theme-border-radius);
+  font-weight: 500;
+  text-transform: none;
+  padding: 8px 16px;
+  transition: all 0.2s ease;
+}
+
+.directus-button-primary:hover {
+  background: var(--theme-primary-600);
+  box-shadow: var(--theme-elevation-md);
+}
+
+.directus-button-secondary {
+  background: var(--theme-background-normal);
+  color: var(--theme-foreground-normal);
+  border: 1px solid var(--theme-border-normal);
+  border-radius: var(--theme-border-radius);
+  font-weight: 500;
+  text-transform: none;
+  padding: 8px 16px;
+  transition: all 0.2s ease;
+}
+
+.directus-button-secondary:hover {
+  background: var(--theme-background-normal-alt);
+  border-color: var(--theme-primary);
+}
+
+/* Navigation style Directus */
+.directus-nav-section {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--theme-foreground-subdued);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 16px 16px 8px 16px;
+}
+
+.directus-nav-item {
+  border-radius: var(--theme-border-radius);
+  margin: 2px 8px;
+  transition: all 0.2s ease;
+}
+
+.directus-nav-item:hover {
+  background: var(--theme-background-normal-alt);
+}
+
+.directus-nav-item.active {
+  background: var(--theme-primary-50);
+  color: var(--theme-primary-700);
+  font-weight: 500;
+}
+
+[data-theme="dark"] .directus-nav-item.active {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--theme-primary-100);
+}
+
+/* Tables style Directus */
+.directus-table {
+  background: var(--theme-background-normal);
+  border: 1px solid var(--theme-border-subdued);
+  border-radius: var(--theme-border-radius-lg);
+  overflow: hidden;
+}
+
+.directus-table .MuiTableHead-root {
+  background: var(--theme-background-accent);
+}
+
+.directus-table .MuiTableCell-head {
+  font-weight: 600;
+  color: var(--theme-foreground-normal-alt);
+  border-bottom: 1px solid var(--theme-border-subdued);
+}
+
+.directus-table .MuiTableBody-root .MuiTableRow-root:hover {
+  background: var(--theme-background-normal-alt);
+}
+
+/* Forms style Directus */
+.directus-form .MuiTextField-root,
+.directus-form .MuiFormControl-root {
+  margin-bottom: var(--theme-form-vertical-gap);
+}
+
+.directus-form .MuiOutlinedInput-root {
+  border-radius: var(--theme-border-radius);
+}
+
+.directus-form .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: var(--theme-primary);
+  border-width: 2px;
+}
+
+/* Breadcrumbs style Directus */
+.directus-breadcrumbs .MuiBreadcrumbs-separator {
+  color: var(--theme-foreground-subdued);
+}
+
+.directus-breadcrumbs a {
+  color: var(--theme-foreground-subdued);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.directus-breadcrumbs a:hover {
+  color: var(--theme-primary);
+}
+
+/* Status badges style Directus */
+.directus-badge {
+  border-radius: var(--theme-border-radius);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 4px 8px;
+}
+
+.directus-badge.success {
+  background: var(--theme-success);
+  color: white;
+}
+
+.directus-badge.warning {
+  background: var(--theme-warning);
+  color: white;
+}
+
+.directus-badge.danger {
+  background: var(--theme-danger);
+  color: white;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .directus-page {
+    padding: 16px;
+  }
+  
+  .directus-card {
+    padding: 16px;
+  }
+} 

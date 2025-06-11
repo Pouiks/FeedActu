@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Button, Alert, Snackbar } from '@mui/material';
+import { Button, Alert, Snackbar, Box, Card, CardContent } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
+import PageHeader from '../components/PageHeader';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useResidence } from '../context/ResidenceContext';
@@ -202,40 +203,61 @@ export default function Posts() {
   };
 
   return (
-    <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h2>Posts de ma résidence</h2>
-        <Button
-          variant="contained"
-          color="primary"
-          size="large"
-          startIcon={<Add />}
-          onClick={handleNewPostClick}
-          sx={{
-            borderRadius: 2,
-            textTransform: 'none',
-            fontSize: '1.1rem',
-            fontWeight: 600,
-            px: 3,
-            py: 1.5,
-            boxShadow: 2,
-            '&:hover': {
-              boxShadow: 4,
-              transform: 'translateY(-1px)'
-            },
-            transition: 'all 0.2s ease-in-out'
-          }}
-        >
-          Nouveau Post
-        </Button>
-      </div>
-
-      <DataTable 
-        title="Posts de ma résidence" 
-        data={filteredPosts} 
-        columns={columns} 
-        onRowClick={handleRowClick}
+    <Box>
+      {/* En-tête moderne style Directus */}
+      <PageHeader
+        title="Posts"
+        subtitle="Gérez vos publications et communications"
+        breadcrumbs={[
+          { label: 'Dashboard', href: '/' },
+          { label: 'Posts', href: '/posts' }
+        ]}
+        actions={[
+          {
+            label: 'Nouveau Post',
+            icon: <Add />,
+            variant: 'contained',
+            props: {
+              onClick: handleNewPostClick
+            }
+          }
+        ]}
+        stats={[
+          { label: 'Total', value: filteredPosts.length },
+          { label: 'Publiés', value: filteredPosts.filter(p => p.status === 'Publié').length },
+          { label: 'Brouillons', value: filteredPosts.filter(p => p.status === 'Brouillon').length }
+        ]}
       />
+
+      {/* Contenu principal dans une card */}
+      <Card className="directus-card">
+        <CardContent sx={{ p: 0 }}>
+          <DataTable
+            className="directus-table"
+            data={filteredPosts}
+            columns={columns}
+            onRowClick={handleRowClick}
+            searchPlaceholder="Rechercher dans les posts..."
+            emptyStateMessage="Aucun post trouvé pour cette résidence"
+            sx={{
+              '& .MuiTable-root': {
+                backgroundColor: 'transparent'
+              },
+              '& .MuiTableHead-root': {
+                backgroundColor: 'var(--theme-background-accent)'
+              },
+              '& .MuiTableCell-head': {
+                fontWeight: 600,
+                color: 'var(--theme-foreground-normal-alt)',
+                borderBottom: '1px solid var(--theme-border-subdued)'
+              },
+              '& .MuiTableBody-root .MuiTableRow-root:hover': {
+                backgroundColor: 'var(--theme-background-normal-alt)'
+              }
+            }}
+          />
+        </CardContent>
+      </Card>
 
       <ModalPublicationForm
         open={openModal}
@@ -293,6 +315,6 @@ export default function Posts() {
           {notification.message}
         </Alert>
       </Snackbar>
-    </>
+    </Box>
   );
 }

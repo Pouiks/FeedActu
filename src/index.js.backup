@@ -9,11 +9,11 @@ import { ResidenceProvider } from './context/ResidenceContext';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
-    <AuthProvider>
   <ResidenceProvider>
+    <AuthProvider>
       <BrowserRouter>
         <App />
       </BrowserRouter>
-  </ResidenceProvider>
     </AuthProvider>
+  </ResidenceProvider>
 );
