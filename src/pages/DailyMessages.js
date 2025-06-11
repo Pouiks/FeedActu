@@ -3,6 +3,7 @@ import { Button, Alert, Snackbar } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
+import PageHeader from '../components/PageHeader';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useResidence } from '../context/ResidenceContext';
@@ -10,82 +11,65 @@ import { useResidence } from '../context/ResidenceContext';
 const mockDailyMessages = [
   { 
     id: 1, 
-    message: '<p>🌟 <strong>Bonne journée à tous !</strong><br>N\'oubliez pas : le tri sélectif, c\'est tous les jours. Merci pour vos efforts ! ♻️</p>', 
-    priority: 'normal', 
-    publicationDate: '2024-11-22T07:00:00', 
+    title: 'Bienvenue dans votre nouvelle résidence !', 
+    content: '<p>Chers résidents,<br><br>Nous sommes ravis de vous accueillir dans votre nouveau chez-vous ! 🏠<br><br>N\'hésitez pas à nous contacter pour toute question.</p>',
+    publicationDate: '2024-11-22T08:00:00', 
     status: 'Publié', 
     residence_id: '1' 
   },
   { 
     id: 2, 
-    message: '<p><strong style="color: red;">ATTENTION :</strong> Travaux de maintenance de l\'ascenseur aujourd\'hui de 9h à 12h.<br>Merci d\'utiliser les escaliers. 🔧</p>', 
-    priority: 'high', 
-    publicationDate: '2024-11-22T08:30:00', 
+    title: 'Rappel : Tri sélectif', 
+    content: '<p>📦 <strong>Rappel important</strong><br><br>Pensez à bien trier vos déchets ! Les bacs jaunes sont collectés le mardi matin.</p>',
+    publicationDate: '2024-11-21T18:30:00', 
     status: 'Publié', 
     residence_id: '1' 
   },
   { 
     id: 3, 
-    message: '<p>📅 <em>Rappel :</em> Assemblée générale <strong>demain 20 décembre à 18h30</strong>.<br>Votre présence ou votre pouvoir est indispensable !</p>', 
-    priority: 'urgent', 
-    publicationDate: '2024-12-19T08:00:00', 
+    title: 'Horaires d\'hiver du gardien', 
+    content: '<p>🕐 <strong>Nouveaux horaires</strong><br><br>À partir du 1er décembre :<br>• Lundi-Vendredi : 8h-12h et 14h-18h<br>• Samedi : 9h-12h</p>',
+    publicationDate: '2024-11-25T09:15:00', 
     status: 'Programmé', 
     residence_id: '1' 
   },
   { 
     id: 4, 
-    message: '<p>🎉 Félicitations à <strong>Marie et Pierre</strong> pour leur initiative du jardin partagé !<br>Les premières récoltes arrivent bientôt.</p>', 
-    priority: 'low', 
-    publicationDate: '2024-11-21T10:15:00', 
-    status: 'Brouillon', 
+    title: 'Bonne année 2025 !', 
+    content: '<p>🎉 <strong>Meilleurs vœux</strong><br><br>Toute l\'équipe vous souhaite une excellente année 2025 !</p>',
+    publicationDate: '2025-01-01T00:00:00', 
+    status: 'Programmé', 
     residence_id: '1' 
   },
   { 
     id: 5, 
-    message: '<p>☀️ Prévisions météo : <em>journée ensoleillée</em> ! Parfait pour aérer les appartements.<br>Température max : 18°C.</p>', 
-    priority: 'low', 
-    publicationDate: '2024-11-20T07:30:00', 
+    title: 'Travaux de peinture terminés', 
+    content: '<p>✅ <strong>Travaux terminés</strong><br><br>Les travaux de peinture dans le hall sont terminés. Merci pour votre patience !</p>',
+    publicationDate: '2024-11-15T16:00:00', 
     status: 'Archivé', 
-    residence_id: '1' 
-  },
-  { 
-    id: 6, 
-    message: '<p><strong>🚨 URGENT - Fuite d\'eau détectée</strong><br>Parking niveau -1. Évitez la zone. Plombier en route.</p>', 
-    priority: 'urgent', 
-    publicationDate: '2024-11-19T14:20:00', 
-    status: 'Archivé', 
-    residence_id: '1' 
-  },
-  { 
-    id: 7, 
-    message: '<p>📦 <em>Colis en attente</em> dans le local gardien pour :<br>• Appartement 2A (M. Durand)<br>• Appartement 5C (Mme Martin)</p>', 
-    priority: 'normal', 
-    publicationDate: '2024-11-23T09:00:00', 
-    status: 'Brouillon', 
     residence_id: '1' 
   }
 ];
 
 export default function DailyMessages() {
   const { ensureAuthenticated, authenticatedPost } = useAuth();
-  const { currentResidenceId } = useResidence();
+  const { currentResidenceId, currentResidenceName } = useResidence();
   const [openModal, setOpenModal] = useState(false);
   const [messages, setMessages] = useState(mockDailyMessages);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const navigate = useNavigate();
 
   const columns = [
-    { id: 'message', label: 'Message', sortable: false, searchable: true },
-    { id: 'priority', label: 'Priorité', sortable: true, searchable: false },
+    { id: 'title', label: 'Titre', sortable: true, searchable: true },
     { id: 'publicationDate', label: 'Date de publication', sortable: true, searchable: false },
     { id: 'status', label: 'Statut', sortable: true, searchable: false },
   ];
 
-  const filteredMessages = messages.filter(msg => msg.residence_id === currentResidenceId);
+  const filteredMessages = messages.filter(message => message.residence_id === currentResidenceId);
 
   const handleAddMessage = async (newMessage) => {
     try {
-      ensureAuthenticated('créer un nouveau message du jour');
+      ensureAuthenticated('créer un nouveau message');
       
       console.log('✅ Utilisateur authentifié, création du message...');
       
@@ -96,7 +80,7 @@ export default function DailyMessages() {
       const messageWithId = { 
         ...newMessage, 
         id: Date.now(), 
-        residence_id: currentResidenceId
+        residence_id: currentResidenceId 
       };
       setMessages(prev => [...prev, messageWithId]);
       
@@ -150,32 +134,28 @@ export default function DailyMessages() {
 
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h2>Messages du jour de ma résidence</h2>
-        <Button
-          variant="contained"
-          color="primary"
-          size="large"
-          startIcon={<Add />}
-          onClick={handleNewMessageClick}
-          sx={{
-            borderRadius: 2,
-            textTransform: 'none',
-            fontSize: '1.1rem',
-            fontWeight: 600,
-            px: 3,
-            py: 1.5,
-            boxShadow: 2,
-            '&:hover': {
-              boxShadow: 4,
-              transform: 'translateY(-1px)'
-            },
-            transition: 'all 0.2s ease-in-out'
-          }}
-        >
-          Nouveau Message
-        </Button>
-      </div>
+      <PageHeader
+        title="Messages du jour"
+        subtitle={`Gérez les messages quotidiens de ${currentResidenceName || 'votre résidence'}`}
+        breadcrumbs={[
+          { label: 'Dashboard', href: '/' },
+          { label: 'Messages du jour', href: '/daily-messages' }
+        ]}
+        actions={[
+          {
+            label: 'Nouveau Message',
+            icon: <Add />,
+            variant: 'contained',
+            props: {
+              onClick: handleNewMessageClick
+            }
+          }
+        ]}
+        stats={[
+          { label: 'Messages actifs', value: filteredMessages.filter(m => m.status === 'Publié').length.toString() },
+          { label: 'Messages programmés', value: filteredMessages.filter(m => m.status === 'Programmé').length.toString() }
+        ]}
+      />
 
       <DataTable 
         title="Messages du jour" 
@@ -190,28 +170,11 @@ export default function DailyMessages() {
         onSubmit={handleAddMessage}
         entityName="Message du jour"
         fields={[
-          { 
-            name: 'message', 
-            label: 'Message', 
-            type: 'wysiwyg', 
-            required: true 
-          },
-          {
-            name: 'priority',
-            label: 'Priorité',
-            type: 'select',
-            required: false,
-            options: [
-              { value: 'low', label: 'Faible' },
-              { value: 'normal', label: 'Normale' },
-              { value: 'high', label: 'Élevée' },
-              { value: 'urgent', label: 'Urgente' }
-            ]
-          }
+          { name: 'title', label: 'Titre du message', type: 'text', required: true },
+          { name: 'content', label: 'Contenu', type: 'richtext', required: true }
         ]}
       />
 
-      {/* Notifications */}
       <Snackbar
         open={notification.open}
         autoHideDuration={6000}
@@ -221,6 +184,7 @@ export default function DailyMessages() {
         <Alert 
           onClose={handleCloseNotification} 
           severity={notification.severity}
+          variant="filled"
           sx={{ width: '100%' }}
         >
           {notification.message}

@@ -3,6 +3,7 @@ import { Button, Alert, Snackbar } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
+import PageHeader from '../components/PageHeader';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useResidence } from '../context/ResidenceContext';
@@ -78,7 +79,7 @@ const mockPolls = [
 
 export default function Polls() {
   const { ensureAuthenticated, authenticatedPost } = useAuth();
-  const { currentResidenceId } = useResidence();
+  const { currentResidenceId, currentResidenceName } = useResidence();
   const [openModal, setOpenModal] = useState(false);
   const [polls, setPolls] = useState(mockPolls);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
@@ -159,32 +160,28 @@ export default function Polls() {
 
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h2>Sondages de ma résidence</h2>
-        <Button
-          variant="contained"
-          color="primary"
-          size="large"
-          startIcon={<Add />}
-          onClick={handleNewPollClick}
-          sx={{
-            borderRadius: 2,
-            textTransform: 'none',
-            fontSize: '1.1rem',
-            fontWeight: 600,
-            px: 3,
-            py: 1.5,
-            boxShadow: 2,
-            '&:hover': {
-              boxShadow: 4,
-              transform: 'translateY(-1px)'
-            },
-            transition: 'all 0.2s ease-in-out'
-          }}
-        >
-          Nouveau Sondage
-        </Button>
-      </div>
+      <PageHeader
+        title="Sondages de ma résidence"
+        subtitle={`Gérez les sondages de ${currentResidenceName || 'votre résidence'}`}
+        breadcrumbs={[
+          { label: 'Dashboard', href: '/' },
+          { label: 'Sondages', href: '/polls' }
+        ]}
+        actions={[
+          {
+            label: 'Nouveau Sondage',
+            icon: <Add />,
+            variant: 'contained',
+            props: {
+              onClick: handleNewPollClick
+            }
+          }
+        ]}
+        stats={[
+          { label: 'Sondages actifs', value: filteredPolls.filter(p => p.status === 'Publié').length.toString() },
+          { label: 'Total sondages', value: filteredPolls.length.toString() }
+        ]}
+      />
 
       <DataTable 
         title="Sondages de ma résidence" 
@@ -199,51 +196,15 @@ export default function Polls() {
         onSubmit={handleAddPoll}
         entityName="Sondage"
         fields={[
-          { 
-            name: 'question', 
-            label: 'Question du sondage', 
-            type: 'wysiwyg', 
-            required: true 
-          },
-          {
-            name: 'imageUrl',
-            label: 'Image du sondage (optionnelle)',
-            type: 'url',
-            required: false,
-            placeholder: 'https://exemple.com/image.jpg',
-            helperText: 'URL d\'une image pour illustrer votre sondage'
-          },
-          { 
-            name: 'answers', 
-            label: 'Réponses possibles', 
-            type: 'pollAnswers', 
-            required: true 
-          },
-          {
-            name: 'allowMultipleAnswers',
-            label: 'Autoriser plusieurs réponses par personne',
-            type: 'checkbox',
-            required: false
-          },
-          {
-            name: 'hasDeadline',
-            label: 'Définir une date limite de vote',
-            type: 'checkbox',
-            required: false
-          },
-          {
-            name: 'deadlineDate',
-            label: 'Date limite de vote',
-            type: 'datetime',
-            required: false,
-            conditionalOn: 'hasDeadline',
-            disablePast: true,
-            helperText: 'Après cette date, le sondage sera fermé aux nouveaux votes'
-          }
+          { name: 'question', label: 'Question du sondage', type: 'richtext', required: true },
+          { name: 'answers', label: 'Réponses possibles', type: 'array', required: true },
+          { name: 'allowMultipleAnswers', label: 'Autoriser plusieurs réponses', type: 'checkbox' },
+          { name: 'hasDeadline', label: 'Définir une date limite', type: 'checkbox' },
+          { name: 'deadlineDate', label: 'Date limite', type: 'datetime', conditional: 'hasDeadline' },
+          { name: 'imageUrl', label: 'Image (optionnelle)', type: 'url' }
         ]}
       />
 
-      {/* Notifications */}
       <Snackbar
         open={notification.open}
         autoHideDuration={6000}
@@ -253,6 +214,7 @@ export default function Polls() {
         <Alert 
           onClose={handleCloseNotification} 
           severity={notification.severity}
+          variant="filled"
           sx={{ width: '100%' }}
         >
           {notification.message}

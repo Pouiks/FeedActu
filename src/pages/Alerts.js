@@ -3,6 +3,7 @@ import { Button, Alert, Snackbar } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
+import PageHeader from '../components/PageHeader';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useResidence } from '../context/ResidenceContext';
@@ -84,7 +85,7 @@ const mockAlerts = [
 
 export default function Alerts() {
   const { ensureAuthenticated, authenticatedPost } = useAuth();
-  const { currentResidenceId } = useResidence();
+  const { currentResidenceId, currentResidenceName } = useResidence();
   const [openModal, setOpenModal] = useState(false);
   const [alerts, setAlerts] = useState(mockAlerts);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
@@ -167,32 +168,28 @@ export default function Alerts() {
 
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h2>Alertes de ma résidence</h2>
-        <Button
-          variant="contained"
-          color="primary"
-          size="large"
-          startIcon={<Add />}
-          onClick={handleNewAlertClick}
-          sx={{
-            borderRadius: 2,
-            textTransform: 'none',
-            fontSize: '1.1rem',
-            fontWeight: 600,
-            px: 3,
-            py: 1.5,
-            boxShadow: 2,
-            '&:hover': {
-              boxShadow: 4,
-              transform: 'translateY(-1px)'
-            },
-            transition: 'all 0.2s ease-in-out'
-          }}
-        >
-          Nouvelle Alerte
-        </Button>
-      </div>
+      <PageHeader
+        title="Alertes de ma résidence"
+        subtitle={`Gérez les alertes de ${currentResidenceName || 'votre résidence'}`}
+        breadcrumbs={[
+          { label: 'Dashboard', href: '/' },
+          { label: 'Alertes', href: '/alerts' }
+        ]}
+        actions={[
+          {
+            label: 'Nouvelle Alerte',
+            icon: <Add />,
+            variant: 'contained',
+            props: {
+              onClick: handleNewAlertClick
+            }
+          }
+        ]}
+        stats={[
+          { label: 'Alertes actives', value: filteredAlerts.filter(a => a.status === 'Publié').length.toString() },
+          { label: 'Alertes critiques', value: filteredAlerts.filter(a => a.priority === 'critical').length.toString() }
+        ]}
+      />
 
       <DataTable 
         title="Alertes de ma résidence" 
@@ -207,41 +204,23 @@ export default function Alerts() {
         onSubmit={handleAddAlert}
         entityName="Alerte"
         fields={[
-          { 
-            name: 'message', 
-            label: 'Message de l\'alerte', 
-            type: 'wysiwyg', 
-            required: true 
-          },
-          {
-            name: 'type',
-            label: 'Type d\'alerte',
-            type: 'select',
-            required: true,
-            options: [
-              { value: 'maintenance', label: 'Maintenance' },
-              { value: 'security', label: 'Sécurité' },
-              { value: 'weather', label: 'Météo' },
-              { value: 'water', label: 'Eau/Gaz/Électricité' },
-              { value: 'other', label: 'Autre' }
-            ]
-          },
-          {
-            name: 'priority',
-            label: 'Priorité',
-            type: 'select',
-            required: true,
-            options: [
-              { value: 'low', label: 'Faible' },
-              { value: 'normal', label: 'Normale' },
-              { value: 'high', label: 'Élevée' },
-              { value: 'critical', label: 'Critique' }
-            ]
-          }
+          { name: 'message', label: 'Message de l\'alerte', type: 'richtext', required: true },
+          { name: 'type', label: 'Type d\'alerte', type: 'select', required: true, options: [
+            { value: 'maintenance', label: 'Maintenance' },
+            { value: 'security', label: 'Sécurité' },
+            { value: 'weather', label: 'Météo' },
+            { value: 'water', label: 'Eau/Électricité' },
+            { value: 'other', label: 'Autre' }
+          ]},
+          { name: 'priority', label: 'Priorité', type: 'select', required: true, options: [
+            { value: 'low', label: 'Faible' },
+            { value: 'normal', label: 'Normale' },
+            { value: 'high', label: 'Élevée' },
+            { value: 'critical', label: 'Critique' }
+          ]}
         ]}
       />
 
-      {/* Notifications */}
       <Snackbar
         open={notification.open}
         autoHideDuration={6000}
@@ -251,6 +230,7 @@ export default function Alerts() {
         <Alert 
           onClose={handleCloseNotification} 
           severity={notification.severity}
+          variant="filled"
           sx={{ width: '100%' }}
         >
           {notification.message}

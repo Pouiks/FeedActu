@@ -3,6 +3,7 @@ import { Button, Alert, Snackbar } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
+import PageHeader from '../components/PageHeader';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useResidence } from '../context/ResidenceContext';
@@ -117,7 +118,7 @@ const mockEvents = [
 
 export default function Events() {
   const { ensureAuthenticated, authenticatedPost, authorizedResidences } = useAuth();
-  const { currentResidenceId } = useResidence();
+  const { currentResidenceId, currentResidenceName } = useResidence();
   const [openModal, setOpenModal] = useState(false);
   const [events, setEvents] = useState(mockEvents);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
@@ -199,7 +200,7 @@ export default function Events() {
       if (!authorizedResidences || authorizedResidences.length === 0) {
         setNotification({
           open: true,
-          message: 'Vous n\'avez accès à aucune résidence pour publier',
+          message: 'Aucune résidence autorisée trouvée pour la création d\'événements',
           severity: 'warning'
         });
         return;
@@ -226,32 +227,28 @@ export default function Events() {
 
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h2>Événements de ma résidence</h2>
-        <Button
-          variant="contained"
-          color="primary"
-          size="large"
-          startIcon={<Add />}
-          onClick={handleNewEventClick}
-          sx={{
-            borderRadius: 2,
-            textTransform: 'none',
-            fontSize: '1.1rem',
-            fontWeight: 600,
-            px: 3,
-            py: 1.5,
-            boxShadow: 2,
-            '&:hover': {
-              boxShadow: 4,
-              transform: 'translateY(-1px)'
-            },
-            transition: 'all 0.2s ease-in-out'
-          }}
-        >
-          Nouvel Événement
-        </Button>
-      </div>
+      <PageHeader
+        title="Événements de ma résidence"
+        subtitle={`Gérez les événements de ${currentResidenceName || 'votre résidence'}`}
+        breadcrumbs={[
+          { label: 'Dashboard', href: '/' },
+          { label: 'Événements', href: '/events' }
+        ]}
+        actions={[
+          {
+            label: 'Nouveau Événement',
+            icon: <Add />,
+            variant: 'contained',
+            props: {
+              onClick: handleNewEventClick
+            }
+          }
+        ]}
+        stats={[
+          { label: 'Événements actifs', value: filteredEvents.filter(e => e.status === 'Publié').length.toString() },
+          { label: 'Total événements', value: filteredEvents.length.toString() }
+        ]}
+      />
 
       <DataTable 
         title="Événements de ma résidence" 
@@ -266,56 +263,17 @@ export default function Events() {
         onSubmit={handleAddEvent}
         entityName="Événement"
         fields={[
-          { 
-            name: 'title', 
-            label: 'Nom de l\'événement', 
-            type: 'text', 
-            required: true,
-            placeholder: 'Ex: Assemblée générale, Fête des voisins...'
-          },
-          { 
-            name: 'description', 
-            label: 'Description', 
-            type: 'wysiwyg', 
-            required: true 
-          },
-          { 
-            name: 'eventDate', 
-            label: 'Date de l\'événement', 
-            type: 'date', 
-            required: true,
-            disablePast: true
-          },
-          { 
-            name: 'startTime', 
-            label: 'Heure de début', 
-            type: 'time', 
-            required: true 
-          },
-          { 
-            name: 'endTime', 
-            label: 'Heure de fin', 
-            type: 'time', 
-            required: true 
-          },
-          {
-            name: 'location',
-            label: 'Lieu',
-            type: 'text',
-            required: false,
-            placeholder: 'Salle commune, Jardin, Hall d\'entrée...'
-          },
-          {
-            name: 'maxParticipants',
-            label: 'Nombre maximum de participants',
-            type: 'number',
-            required: false,
-            placeholder: '20'
-          }
+          { name: 'title', label: 'Titre de l\'événement', type: 'text', required: true },
+          { name: 'description', label: 'Description', type: 'richtext', required: true },
+          { name: 'eventDate', label: 'Date de l\'événement', type: 'date', required: true },
+          { name: 'startTime', label: 'Heure de début', type: 'time', required: true },
+          { name: 'endTime', label: 'Heure de fin', type: 'time' },
+          { name: 'location', label: 'Lieu', type: 'text', required: true },
+          { name: 'maxParticipants', label: 'Nombre max de participants', type: 'number' },
+          { name: 'targetResidences', label: 'Résidences cibles', type: 'multiselect', required: true }
         ]}
       />
 
-      {/* Notifications */}
       <Snackbar
         open={notification.open}
         autoHideDuration={6000}
@@ -325,6 +283,7 @@ export default function Events() {
         <Alert 
           onClose={handleCloseNotification} 
           severity={notification.severity}
+          variant="filled"
           sx={{ width: '100%' }}
         >
           {notification.message}

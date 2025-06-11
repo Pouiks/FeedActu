@@ -2,8 +2,10 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { Alert, Snackbar } from '@mui/material';
+import { Alert, Snackbar, Button, Box, Card } from '@mui/material';
+import { Add, CalendarMonth } from '@mui/icons-material';
 import ModalPublicationForm from '../components/ModalPublicationForm';
+import PageHeader from '../components/PageHeader';
 import { useResidence } from '../context/ResidenceContext';
 
 import FullCalendar from '@fullcalendar/react';
@@ -131,7 +133,7 @@ const mockEvents = [
 
 export default function EventsCalendar() {
   const { ensureAuthenticated, authenticatedPost } = useAuth();
-  const { currentResidenceId } = useResidence();
+  const { currentResidenceId, currentResidenceName } = useResidence();
   const [openModal, setOpenModal] = useState(false);
   const [events, setEvents] = useState(mockEvents);
   const [notification, setNotification] = useState({
@@ -198,7 +200,7 @@ export default function EventsCalendar() {
   // Clic sur événement
   const handleEventClick = (clickInfo) => {
     const eventId = clickInfo.event.id;
-    navigate(`/events/${eventId}?from=calendar`);
+    navigate(`/events/${eventId}`);
   };
 
   // Clic sur date
@@ -216,24 +218,21 @@ export default function EventsCalendar() {
     }
   };
 
-  // Créer un événement
   const handleAddEvent = async (newEvent) => {
     try {
       ensureAuthenticated('créer un nouvel événement');
       
-      await authenticatedPost('/api/events', newEvent);
+      const result = await authenticatedPost('/api/events', newEvent);
       
       const eventWithId = { 
         ...newEvent, 
-        id: Date.now(), 
-        residence_id: currentResidenceId,
-        status: 'Publié'
+        id: Date.now(),
+        residence_id: currentResidenceId
       };
-      
       setEvents(prev => [...prev, eventWithId]);
+      
       setOpenModal(false);
       setSelectedDate(null);
-      
       setNotification({
         open: true,
         message: 'Événement créé avec succès !',
@@ -241,6 +240,7 @@ export default function EventsCalendar() {
       });
       
     } catch (error) {
+      console.error('❌ Erreur lors de la création de l\'événement:', error);
       setNotification({
         open: true,
         message: 'Erreur lors de la création de l\'événement',
@@ -264,123 +264,115 @@ export default function EventsCalendar() {
 
   const getInitialValues = () => {
     if (selectedDate) {
-      const date = new Date(selectedDate);
-      const startTime = new Date();
-      startTime.setHours(19, 0, 0, 0);
-      const endTime = new Date();
-      endTime.setHours(20, 0, 0, 0);
-      
-      return {
-        eventDate: date,
-        startTime: startTime,
-        endTime: endTime
-      };
+      return { eventDate: selectedDate };
     }
     return {};
   };
 
+  const handleCloseNotification = () => {
+    setNotification({ ...notification, open: false });
+  };
+
   return (
-    <div style={{ padding: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h2>Calendrier des événements</h2>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={handleNewEventClick}>Nouvel événement</button>
-          <button onClick={() => navigate('/events')}>Gérer les événements</button>
-        </div>
-      </div>
-
-      {/* Indicateur du nombre d'événements */}
-      <div style={{ marginBottom: 16, padding: 8, backgroundColor: '#e3f2fd', borderRadius: 4, textAlign: 'center' }}>
-        <p style={{ margin: 0, fontSize: '13px', color: '#1976d2' }}>
-          📊 <strong>{filteredEvents.length}</strong> événement{filteredEvents.length > 1 ? 's' : ''} affiché{filteredEvents.length > 1 ? 's' : ''}
-        </p>
-      </div>
-
-      {/* FULLCALENDAR NATIF - SIMPLE ET QUI FONCTIONNE */}
-      <FullCalendar
-        plugins={[dayGridPlugin, interactionPlugin]}
-        initialView="dayGridMonth"
-        locale={frLocale}
-        
-        // ÉVÉNEMENTS
-        events={calendarEvents}
-        
-        // DRAG & DROP NATIF
-        editable={true}
-        eventDrop={handleEventDrop}
-        
-        // INTERACTIONS
-        dateClick={handleDateClick}
-        eventClick={handleEventClick}
-        selectable={true}
-        selectMirror={true}
-        
-        // CONFIGURATION
-        headerToolbar={{
-          left: 'prev,next today',
-          center: 'title',
-          right: 'dayGridMonth,dayGridWeek'
-        }}
-        
-        height="auto"
-        contentHeight={600}
-        dayMaxEvents={3}
-        moreLinkText="autre(s)"
-        
-        // STYLING NATIF
-        eventDidMount={(info) => {
-          const status = info.event.extendedProps.status;
-          const isArchived = info.event.extendedProps.isArchived;
-          
-          // Couleurs par statut
-          switch(status) {
-            case 'Publié':
-              info.el.style.backgroundColor = '#4CAF50';
-              info.el.style.borderColor = '#4CAF50';
-              break;
-            case 'Programmé':
-              info.el.style.backgroundColor = '#2196F3';
-              info.el.style.borderColor = '#2196F3';
-              break;
-            case 'Brouillon':
-              info.el.style.backgroundColor = '#FF9800';
-              info.el.style.borderColor = '#FF9800';
-              break;
-            case 'Archivé':
-              info.el.style.backgroundColor = '#757575';
-              info.el.style.borderColor = '#757575';
-              info.el.style.opacity = '0.6';
-              break;
+    <>
+      <PageHeader
+        title="Calendrier des événements"
+        subtitle={`Visualisez et gérez les événements de ${currentResidenceName || 'votre résidence'}`}
+        breadcrumbs={[
+          { label: 'Dashboard', href: '/' },
+          { label: 'Calendrier', href: '/calendar' }
+        ]}
+                actions={[
+          {
+            label: 'Nouveau Événement',
+            icon: <Add />,
+            variant: 'contained',
+            props: {
+              onClick: handleNewEventClick
+            }
           }
-          
-          // Curseur et tooltip
-          info.el.style.cursor = isArchived ? 'not-allowed' : 'move';
-          info.el.title = isArchived 
-            ? `${info.event.title} - Archivé (non déplaçable)`
-            : `${info.event.title} - Glissez pour déplacer`;
-          
-          // Désactiver le drag pour les événements archivés
-          if (isArchived) {
-            info.event.setProp('editable', false);
-          }
-        }}
-        
-        // HOVER NATIF SIMPLE
-        eventMouseEnter={(info) => {
-          if (!info.event.extendedProps.isArchived) {
-            info.el.style.transform = 'scale(1.02)';
-            info.el.style.transition = 'transform 0.1s ease';
-            info.el.style.zIndex = '1000';
-          }
-        }}
-        
-        eventMouseLeave={(info) => {
-          info.el.style.transform = 'scale(1)';
-          info.el.style.zIndex = 'auto';
-        }}
+        ]}
+        stats={[
+          { label: 'Événements ce mois', value: filteredEvents.filter(e => {
+            const eventMonth = new Date(e.eventDate).getMonth();
+            const currentMonth = new Date().getMonth();
+            return eventMonth === currentMonth && e.status === 'Publié';
+          }).length.toString() },
+          { label: 'Total événements', value: filteredEvents.length.toString() }
+        ]}
       />
 
-      {/* Modal de création */}
+      <Card className="directus-card" sx={{ p: 3 }}>
+        <Box sx={{ 
+          '& .fc': {
+            '--fc-border-color': 'var(--theme-border-subdued)',
+            '--fc-button-bg-color': 'var(--theme-primary)',
+            '--fc-button-border-color': 'var(--theme-primary)',
+            '--fc-button-hover-bg-color': 'var(--theme-primary-600)',
+            '--fc-button-active-bg-color': 'var(--theme-primary-700)',
+            '--fc-today-bg-color': 'var(--theme-primary-50)',
+            '--fc-event-bg-color': 'var(--theme-primary)',
+            '--fc-event-border-color': 'var(--theme-primary-600)',
+            fontFamily: 'inherit'
+          },
+          '& .fc-toolbar-title': {
+            color: 'var(--theme-foreground-normal)',
+            fontWeight: 600
+          },
+          '& .fc-daygrid-day-number': {
+            color: 'var(--theme-foreground-normal)'
+          },
+          '& .fc-col-header-cell': {
+            backgroundColor: 'var(--theme-background-accent)',
+            borderColor: 'var(--theme-border-subdued)'
+          },
+          '& .fc-daygrid-day': {
+            '&:hover': {
+              backgroundColor: 'var(--theme-background-accent)'
+            }
+          },
+          '& .fc-event': {
+            cursor: 'pointer',
+            borderRadius: 'var(--theme-border-radius)',
+            '&:hover': {
+              opacity: 0.8
+            }
+          }
+        }}>
+          <FullCalendar
+            plugins={[dayGridPlugin, interactionPlugin]}
+            initialView="dayGridMonth"
+            locale={frLocale}
+            events={calendarEvents}
+            editable={true}
+            droppable={true}
+            eventDrop={handleEventDrop}
+            eventClick={handleEventClick}
+            dateClick={handleDateClick}
+            height="auto"
+            headerToolbar={{
+              left: 'prev,next today',
+              center: 'title',
+              right: 'dayGridMonth,dayGridWeek'
+            }}
+            buttonText={{
+              today: 'Aujourd\'hui',
+              month: 'Mois',
+              week: 'Semaine'
+            }}
+            dayMaxEvents={3}
+            moreLinkText="plus"
+            eventDisplay="block"
+            displayEventTime={true}
+            eventTimeFormat={{
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false
+            }}
+          />
+        </Box>
+      </Card>
+
       <ModalPublicationForm
         open={openModal}
         handleClose={() => {
@@ -391,63 +383,31 @@ export default function EventsCalendar() {
         entityName="Événement"
         initialValues={getInitialValues()}
         fields={[
-          { 
-            name: 'title', 
-            label: 'Nom de l\'événement', 
-            type: 'text', 
-            required: true,
-            placeholder: 'Ex: Assemblée générale, Fête des voisins...'
-          },
-          { 
-            name: 'description', 
-            label: 'Description', 
-            type: 'wysiwyg', 
-            required: true 
-          },
-          { 
-            name: 'eventDate', 
-            label: 'Date de l\'événement', 
-            type: 'date', 
-            required: true,
-            disablePast: true
-          },
-          { 
-            name: 'startTime', 
-            label: 'Heure de début', 
-            type: 'time', 
-            required: true 
-          },
-          { 
-            name: 'endTime', 
-            label: 'Heure de fin', 
-            type: 'time', 
-            required: true 
-          },
-          {
-            name: 'location',
-            label: 'Lieu',
-            type: 'text',
-            required: false,
-            placeholder: 'Salle commune, Jardin, Hall d\'entrée...'
-          }
+          { name: 'title', label: 'Titre de l\'événement', type: 'text', required: true },
+          { name: 'description', label: 'Description', type: 'richtext', required: true },
+          { name: 'eventDate', label: 'Date de l\'événement', type: 'date', required: true },
+          { name: 'startTime', label: 'Heure de début', type: 'time', required: true },
+          { name: 'endTime', label: 'Heure de fin', type: 'time' },
+          { name: 'location', label: 'Lieu', type: 'text', required: true },
+          { name: 'maxParticipants', label: 'Nombre max de participants', type: 'number' }
         ]}
       />
 
-      {/* Notifications */}
       <Snackbar
         open={notification.open}
         autoHideDuration={6000}
-        onClose={() => setNotification({ ...notification, open: false })}
+        onClose={handleCloseNotification}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
         <Alert 
-          onClose={() => setNotification({ ...notification, open: false })} 
+          onClose={handleCloseNotification} 
           severity={notification.severity}
+          variant="filled"
           sx={{ width: '100%' }}
         >
           {notification.message}
         </Alert>
       </Snackbar>
-    </div>
+    </>
   );
 }
