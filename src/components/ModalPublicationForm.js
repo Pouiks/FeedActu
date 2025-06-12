@@ -11,6 +11,8 @@ import RichTextEditor from './RichTextEditor';
 import ResidenceTagSelector from './ResidenceTagSelector';
 import MobilePreview from './MobilePreview';
 import { useAuth } from '../hooks/useAuth';
+import { PublicationLogger } from '../utils/publicationLogger';
+import { useErrorHandler } from '../utils/errorHandler';
 
 const style = {
   position: 'absolute',
@@ -35,7 +37,8 @@ export default function ModalPublicationForm({
   fields = [], 
   initialValues = {} 
 }) {
-  const { authorizedResidences } = useAuth();
+  const { authorizedResidences, user } = useAuth();
+  const { executeWithErrorHandling, getUserFriendlyMessage } = useErrorHandler();
   const [formData, setFormData] = useState({});
   const [pollAnswers, setPollAnswers] = useState(['']);
   const [publishLater, setPublishLater] = useState(false);
@@ -43,6 +46,7 @@ export default function ModalPublicationForm({
   const [selectedResidences, setSelectedResidences] = useState([]);
   const [errors, setErrors] = useState({});
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const isFirstOpen = useRef(true);
 
   // Validation de sécurité pour les résidences
@@ -155,46 +159,91 @@ export default function ModalPublicationForm({
     return publishDateTime >= new Date();
   };
 
-  const handleSave = (status) => {
-    if (!validateForm()) {
-      console.warn('🚨 Validation échouée pour la publication');
-      return;
+  const handleSave = async (status) => {
+    if (isSubmitting) return; // Éviter les double-clics
+    
+    setIsSubmitting(true);
+    
+    try {
+      if (!validateForm()) {
+        console.warn('🚨 Validation échouée pour la publication');
+        return;
+      }
+
+      // Validation finale de sécurité
+      const finalSecureResidences = validateResidencesSecurity(selectedResidences);
+      if (finalSecureResidences.length === 0) {
+        console.error('🚨 SÉCURITÉ CRITIQUE: Aucune résidence autorisée pour la publication');
+        setErrors({ residences: 'Erreur de sécurité: aucune résidence autorisée' });
+        return;
+      }
+
+      const finalPublicationDate = publishLater ? publishDateTime.toISOString() : new Date().toISOString();
+
+      // Construire les données complètes avec TOUS les champs
+      const newItem = {
+        ...formData,
+        ...(fields.some(f => f.type === 'pollAnswers') && { 
+          answers: pollAnswers.filter(answer => answer.trim() !== '') 
+        }),
+        // 📅 Logique publishLater
+        publishLater: publishLater, // Toujours présent (true/false)
+        publicationDate: finalPublicationDate,
+        publishDateTime: publishLater ? publishDateTime.toISOString() : '', // Vide si publishLater = false
+        
+        targetResidences: finalSecureResidences,
+        targetResidenceNames: finalSecureResidences.map(id => {
+          const residence = authorizedResidences?.find(r => r.residenceId === id);
+          return residence ? residence.residenceName : `Résidence ${id}`;
+        }),
+        status,
+        createdAt: new Date().toISOString(),
+        createdBy: user?.userId || user?.email || 'current-user'
+      };
+
+      // 📋 Log de préparation avec TOUS les champs
+      const publicationType = entityName.toLowerCase();
+      const userContext = { user, authorizedResidences };
+      PublicationLogger.logPublication(publicationType, newItem, 'PREPARING', userContext);
+
+      // 🚀 Exécution avec gestion d'erreurs robuste
+      await executeWithErrorHandling(
+        async () => {
+          return await onSubmit(newItem);
+        },
+        {
+          type: publicationType,
+          data: newItem,
+          userContext,
+          onSuccess: (result, retryCount) => {
+            console.log(`✅ ${entityName} créé avec succès${retryCount > 0 ? ` après ${retryCount} tentatives` : ''}`);
+            handleClose();
+            resetForm();
+          },
+          onError: (error) => {
+            const friendlyMessage = getUserFriendlyMessage(error, { type: entityName.toLowerCase() });
+            setErrors({ 
+              submit: friendlyMessage 
+            });
+          },
+          onRetry: (error, attempt) => {
+            console.log(`🔄 Tentative ${attempt}/3 pour ${entityName}`);
+          }
+        }
+      );
+
+    } catch (error) {
+      console.error(`❌ Erreur finale lors de la création du ${entityName}:`, error);
+      
+      // Message d'erreur utilisateur friendly
+      const friendlyMessage = getUserFriendlyMessage(error, { type: entityName.toLowerCase() });
+      setErrors({ 
+        submit: friendlyMessage 
+      });
+      
+    } finally {
+      setIsSubmitting(false);
     }
-
-    // Validation finale de sécurité
-    const finalSecureResidences = validateResidencesSecurity(selectedResidences);
-    if (finalSecureResidences.length === 0) {
-      console.error('🚨 SÉCURITÉ CRITIQUE: Aucune résidence autorisée pour la publication');
-      setErrors({ residences: 'Erreur de sécurité: aucune résidence autorisée' });
-      return;
-    }
-
-    const finalPublicationDate = publishLater ? publishDateTime.toISOString() : new Date().toISOString();
-
-    const newItem = {
-      ...formData,
-      ...(fields.some(f => f.type === 'pollAnswers') && { 
-        answers: pollAnswers.filter(answer => answer.trim() !== '') 
-      }),
-      publicationDate: finalPublicationDate,
-      targetResidences: finalSecureResidences, // Nouvelle propriété sécurisée
-      targetResidenceNames: finalSecureResidences.map(id => {
-        const residence = authorizedResidences?.find(r => r.residenceId === id);
-        return residence ? residence.residenceName : `Résidence ${id}`;
-      }),
-      status,
-      createdAt: new Date().toISOString(),
-      createdBy: 'current-user' // À remplacer par l'ID utilisateur réel
-    };
-
-    console.log('✅ Publication sécurisée soumise:', {
-      ...newItem,
-      targetResidencesCount: finalSecureResidences.length
-    });
-
-    onSubmit(newItem);
-    handleClose();
-    resetForm();
   };
 
   const resetForm = () => {
@@ -519,6 +568,11 @@ export default function ModalPublicationForm({
                   • {errors.preview}
                 </Typography>
               )}
+              {errors.submit && (
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  • {errors.submit}
+                </Typography>
+              )}
             </Alert>
           )}
 
@@ -576,16 +630,20 @@ export default function ModalPublicationForm({
               >
                 📱 Aperçu mobile
               </Button>
-              <Button variant="outlined" onClick={() => handleSave('Brouillon')}>
-                Enregistrer comme Brouillon
+              <Button 
+                variant="outlined" 
+                onClick={() => handleSave('Brouillon')}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Sauvegarde...' : 'Enregistrer comme Brouillon'}
               </Button>
               <Button
                 variant="contained"
                 color="primary"
                 onClick={() => handleSave('Publié')}
-                disabled={publishLater && !isDateValid()}
+                disabled={publishLater && !isDateValid() || isSubmitting}
               >
-                Publier{selectedResidences.length > 1 ? ` dans ${selectedResidences.length} résidences` : ''}
+                {isSubmitting ? 'Publication en cours...' : `Publier${selectedResidences.length > 1 ? ` dans ${selectedResidences.length} résidences` : ''}`}
               </Button>
             </Stack>
           </Stack>

@@ -49,6 +49,29 @@ export default function MobilePreview({
     }
   };
 
+  const formatTimeValue = (value) => {
+    if (!value) return '';
+    if (typeof value === 'string') {
+      if (/^\d{2}:\d{2}$/.test(value)) return value;
+      const date = new Date(value);
+      if (!isNaN(date)) return format(date, 'HH:mm', { locale: fr });
+      return value;
+    }
+    if (value instanceof Date && !isNaN(value)) {
+      return format(value, 'HH:mm', { locale: fr });
+    }
+    return '';
+  };
+
+  // Utilitaire pour forcer l'affichage d'une string
+  const safeString = (val) => {
+    if (val === null || val === undefined) return '';
+    if (typeof val === 'string') return val;
+    if (typeof val === 'number') return val.toString();
+    if (val instanceof Date && !isNaN(val)) return format(val, 'dd/MM/yyyy HH:mm', { locale: fr });
+    return val.toString ? val.toString() : '';
+  };
+
   const renderContent = () => {
     switch (type) {
       case 'Événement':
@@ -64,26 +87,26 @@ export default function MobilePreview({
 
             {/* Titre */}
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-              {data.title}
+              {safeString(data.title)}
             </Typography>
 
             {/* Informations clés */}
             <Card variant="outlined" sx={{ mb: 2, bgcolor: '#f8f9fa' }}>
               <CardContent sx={{ py: 1.5 }}>
                 <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
-                  📅 {formatEventDate(data.eventDate)}
+                  📅 {data.eventDate ? formatEventDate(data.eventDate) : ''}
                 </Typography>
                 <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
-                  🕐 {data.startTime} - {data.endTime}
+                  🕐 {formatTimeValue(data.startTime)}{data.endTime ? ` - ${formatTimeValue(data.endTime)}` : ''}
                 </Typography>
                 {data.location && (
                   <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
-                    📍 {data.location}
+                    📍 {safeString(data.location)}
                   </Typography>
                 )}
                 {data.hasParticipantLimit && data.maxParticipants && (
                   <Typography variant="body2" color="textSecondary">
-                    👥 Limité à {data.maxParticipants} participants
+                    👥 Limité à {safeString(data.maxParticipants)} participants
                   </Typography>
                 )}
               </CardContent>
@@ -93,7 +116,7 @@ export default function MobilePreview({
             {data.description && (
               <Box sx={{ mb: 2 }}>
                 <Typography variant="body2" 
-                  dangerouslySetInnerHTML={{ __html: data.description }}
+                  dangerouslySetInnerHTML={{ __html: safeString(data.description) }}
                   sx={{ lineHeight: 1.6 }}
                 />
               </Box>
@@ -104,7 +127,7 @@ export default function MobilePreview({
               <Card variant="outlined" sx={{ mb: 2, bgcolor: '#fff3e0' }}>
                 <CardContent sx={{ py: 1.5 }}>
                   <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center' }}>
-                    📎 Document joint : {data.document}
+                    �� Document joint : {safeString(data.document)}
                   </Typography>
                 </CardContent>
               </Card>
@@ -116,7 +139,7 @@ export default function MobilePreview({
                 size="small" 
                 color="info" 
                 variant="outlined"
-                label={`Récurrence: ${data.recurrence === 'weekly' ? 'Hebdomadaire' : data.recurrence === 'monthly' ? 'Mensuelle' : 'Personnalisée'}`}
+                label={`Récurrence: ${safeString(data.recurrence === 'weekly' ? 'Hebdomadaire' : data.recurrence === 'monthly' ? 'Mensuelle' : 'Personnalisée')}`}
                 sx={{ mb: 2 }}
               />
             )}
@@ -156,7 +179,7 @@ export default function MobilePreview({
             {data.imageUrl && (
               <Box sx={{ mb: 2 }}>
                 <img 
-                  src={data.imageUrl} 
+                  src={safeString(data.imageUrl)} 
                   alt="Illustration du sondage"
                   style={{ 
                     width: '100%', 
@@ -175,7 +198,7 @@ export default function MobilePreview({
             {data.question && (
               <Box sx={{ mb: 3 }}>
                 <Typography variant="body2" 
-                  dangerouslySetInnerHTML={{ __html: data.question }}
+                  dangerouslySetInnerHTML={{ __html: safeString(data.question) }}
                   sx={{ lineHeight: 1.6 }}
                 />
               </Box>
@@ -204,7 +227,7 @@ export default function MobilePreview({
                   }
                 }}
               >
-                {data.allowMultipleAnswers ? '☐' : '○'} {answer}
+                {data.allowMultipleAnswers ? '☐' : '○'} {safeString(answer)}
               </Button>
             ))}
 
@@ -213,7 +236,7 @@ export default function MobilePreview({
               <CardContent sx={{ py: 1.5 }}>
                 {data.hasDeadline && data.deadlineDate && (
                   <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 1 }}>
-                    ⏰ Vote ouvert jusqu'au {formatDate(data.deadlineDate)}
+                    ⏰ Vote ouvert jusqu'au {data.deadlineDate ? formatDate(data.deadlineDate) : ''}
                   </Typography>
                 )}
                 {data.allowMultipleAnswers && (
@@ -248,7 +271,7 @@ export default function MobilePreview({
               {data.category && (
                 <Chip 
                   size="small" 
-                  label={data.category}
+                  label={safeString(data.category)}
                   color={data.category === 'urgent' ? 'error' : 'default'}
                   sx={{ ml: 'auto' }}
                 />
@@ -257,14 +280,14 @@ export default function MobilePreview({
 
             {/* Titre */}
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-              {data.title}
+              {safeString(data.title)}
             </Typography>
 
             {/* Image */}
             {data.imageUrl && (
               <Box sx={{ mb: 2 }}>
                 <img 
-                  src={data.imageUrl} 
+                  src={safeString(data.imageUrl)} 
                   alt="Illustration"
                   style={{ 
                     width: '100%', 
@@ -280,7 +303,7 @@ export default function MobilePreview({
             {data.message && (
               <Box sx={{ mb: 2 }}>
                 <Typography variant="body2" 
-                  dangerouslySetInnerHTML={{ __html: data.message }}
+                  dangerouslySetInnerHTML={{ __html: safeString(data.message) }}
                   sx={{ lineHeight: 1.6 }}
                 />
               </Box>
@@ -359,7 +382,7 @@ export default function MobilePreview({
           </Typography>
           <Chip 
             size="small" 
-            label={data.status || 'Publié'}
+            label={safeString(data.status) || 'Publié'}
             color={getTypeColor()}
             variant="outlined"
           />
