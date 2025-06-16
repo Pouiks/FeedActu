@@ -204,20 +204,15 @@ export default function Alerts() {
         onSubmit={handleAddAlert}
         entityName="Alerte"
         fields={[
-          { name: 'message', label: 'Message de l\'alerte', type: 'richtext', required: true },
-          { name: 'type', label: 'Type d\'alerte', type: 'select', required: true, options: [
+          { name: 'alertType', label: 'Type d\'alerte', type: 'select', required: true, options: [
             { value: 'maintenance', label: 'Maintenance' },
             { value: 'security', label: 'Sécurité' },
+            { value: 'emergency', label: 'Urgence' },
+            { value: 'service', label: 'Service' },
             { value: 'weather', label: 'Météo' },
-            { value: 'water', label: 'Eau/Électricité' },
             { value: 'other', label: 'Autre' }
           ]},
-          { name: 'priority', label: 'Priorité', type: 'select', required: true, options: [
-            { value: 'low', label: 'Faible' },
-            { value: 'normal', label: 'Normale' },
-            { value: 'high', label: 'Élevée' },
-            { value: 'critical', label: 'Critique' }
-          ]}
+          { name: 'message', label: 'Message d\'alerte', type: 'wysiwyg', required: true }
         ]}
       />
 

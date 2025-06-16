@@ -7,6 +7,7 @@ import PageHeader from '../components/PageHeader';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useResidence } from '../context/ResidenceContext';
+import { usePublications } from '../context/PublicationsContext';
 
 const mockEvents = [
   { 
@@ -117,10 +118,10 @@ const mockEvents = [
 ];
 
 export default function Events() {
-  const { ensureAuthenticated, authenticatedPost, authorizedResidences } = useAuth();
+  const { ensureAuthenticated, authorizedResidences } = useAuth();
   const { currentResidenceId, currentResidenceName } = useResidence();
+  const { getPublications, addPublication } = usePublications();
   const [openModal, setOpenModal] = useState(false);
-  const [events, setEvents] = useState(mockEvents);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const navigate = useNavigate();
 
@@ -132,16 +133,12 @@ export default function Events() {
     { id: 'status', label: 'Statut', sortable: true, searchable: false },
   ];
 
-  const filteredEvents = events.filter(event => {
-    return event.targetResidences && event.targetResidences.includes(currentResidenceId);
-  });
+  // Récupération des événements via le contexte (filtrage automatique par résidence dans le contexte)
+  const events = getPublications('events');
 
   const handleAddEvent = async (newEvent) => {
     try {
       ensureAuthenticated('créer un nouvel événement');
-      
-      console.log('✅ Utilisateur authentifié, création de l\'événement...');
-      console.log('📝 Données de l\'événement:', newEvent);
       
       if (!newEvent.targetResidences || newEvent.targetResidences.length === 0) {
         throw new Error('Aucune résidence sélectionnée pour la publication');
@@ -155,16 +152,8 @@ export default function Events() {
         throw new Error('Vous n\'êtes pas autorisé à publier dans certaines résidences sélectionnées');
       }
       
-      const result = await authenticatedPost('/api/events', newEvent);
-      
-      console.log('✅ Événement créé avec succès:', result);
-      
-      const eventWithId = { 
-        ...newEvent, 
-        id: Date.now(),
-        residence_id: currentResidenceId
-      };
-      setEvents(prev => [...prev, eventWithId]);
+      // Utiliser le contexte pour la création - Expérience utilisateur immédiate
+      await addPublication('events', newEvent);
       
       setOpenModal(false);
       const residenceCount = newEvent.targetResidences.length;
@@ -245,14 +234,14 @@ export default function Events() {
           }
         ]}
         stats={[
-          { label: 'Événements actifs', value: filteredEvents.filter(e => e.status === 'Publié').length.toString() },
-          { label: 'Total événements', value: filteredEvents.length.toString() }
+          { label: 'Événements actifs', value: events.filter(e => e.status === 'Publié').length.toString() },
+          { label: 'Total événements', value: events.length.toString() }
         ]}
       />
 
       <DataTable 
         title="Événements de ma résidence" 
-        data={filteredEvents} 
+        data={events} 
         columns={columns} 
         onRowClick={handleRowClick}
       />
@@ -264,13 +253,25 @@ export default function Events() {
         entityName="Événement"
         fields={[
           { name: 'title', label: 'Titre de l\'événement', type: 'text', required: true },
-          { name: 'description', label: 'Description', type: 'richtext', required: true },
-          { name: 'eventDate', label: 'Date de l\'événement', type: 'date', required: true },
-          { name: 'startTime', label: 'Heure de début', type: 'time', required: true },
-          { name: 'endTime', label: 'Heure de fin', type: 'time' },
+          { name: 'description', label: 'Description', type: 'wysiwyg', required: true },
+          { 
+            name: 'eventDateRange', 
+            label: 'Date et heure de l\'événement', 
+            type: 'daterange', 
+            required: true,
+            disablePast: true,
+            helperText: 'Sélectionnez les dates et heures de début et de fin'
+          },
           { name: 'location', label: 'Lieu', type: 'text', required: true },
           { name: 'maxParticipants', label: 'Nombre max de participants', type: 'number' },
-          { name: 'targetResidences', label: 'Résidences cibles', type: 'multiselect', required: true }
+          { 
+            name: 'imageUrl', 
+            label: "Image de l'événement", 
+            type: 'image', 
+            required: false,
+            placeholder: 'https://exemple.com/image.jpg',
+            helperText: 'Chargez un fichier ou collez une URL d\'image'
+          }
         ]}
       />
 

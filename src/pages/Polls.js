@@ -7,6 +7,7 @@ import PageHeader from '../components/PageHeader';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useResidence } from '../context/ResidenceContext';
+import { usePublications } from '../context/PublicationsContext';
 
 const mockPolls = [
   { 
@@ -78,10 +79,10 @@ const mockPolls = [
 ];
 
 export default function Polls() {
-  const { ensureAuthenticated, authenticatedPost } = useAuth();
+  const { ensureAuthenticated, authorizedResidences } = useAuth();
   const { currentResidenceId, currentResidenceName } = useResidence();
+  const { getPublications, addPublication } = usePublications();
   const [openModal, setOpenModal] = useState(false);
-  const [polls, setPolls] = useState(mockPolls);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const navigate = useNavigate();
 
@@ -91,29 +92,34 @@ export default function Polls() {
     { id: 'status', label: 'Statut', sortable: true, searchable: false },
   ];
 
-  const filteredPolls = polls.filter(poll => poll.residence_id === currentResidenceId);
+  // Récupération des sondages via le contexte (filtrage automatique par résidence)
+  const polls = getPublications('polls');
 
   const handleAddPoll = async (newPoll) => {
     try {
       ensureAuthenticated('créer un nouveau sondage');
       
-      console.log('✅ Utilisateur authentifié, création du sondage...');
+      // Validation de sécurité des résidences
+      if (!newPoll.targetResidences || newPoll.targetResidences.length === 0) {
+        throw new Error('Aucune résidence sélectionnée pour la publication');
+      }
+
+      const authorizedIds = authorizedResidences?.map(r => r.residenceId) || [];
+      const unauthorizedResidences = newPoll.targetResidences.filter(id => !authorizedIds.includes(id));
       
-      const result = await authenticatedPost('/api/polls', newPoll);
+      if (unauthorizedResidences.length > 0) {
+        console.error('🚨 SÉCURITÉ: Tentative de publication dans des résidences non autorisées:', unauthorizedResidences);
+        throw new Error('Vous n\'êtes pas autorisé à publier dans certaines résidences sélectionnées');
+      }
       
-      console.log('✅ Sondage créé avec succès:', result);
-      
-      const pollWithId = { 
-        ...newPoll, 
-        id: Date.now(), 
-        residence_id: currentResidenceId 
-      };
-      setPolls(prev => [...prev, pollWithId]);
+      // Utiliser le contexte pour la création - Expérience utilisateur immédiate
+      await addPublication('polls', newPoll);
       
       setOpenModal(false);
+      const residenceCount = newPoll.targetResidences.length;
       setNotification({
         open: true,
-        message: 'Sondage créé avec succès !',
+        message: `Sondage créé avec succès et publié dans ${residenceCount} résidence${residenceCount > 1 ? 's' : ''} !`,
         severity: 'success'
       });
       
@@ -178,14 +184,14 @@ export default function Polls() {
           }
         ]}
         stats={[
-          { label: 'Sondages actifs', value: filteredPolls.filter(p => p.status === 'Publié').length.toString() },
-          { label: 'Total sondages', value: filteredPolls.length.toString() }
+          { label: 'Sondages actifs', value: polls.filter(p => p.status === 'Publié').length.toString() },
+          { label: 'Total sondages', value: polls.length.toString() }
         ]}
       />
 
       <DataTable 
         title="Sondages de ma résidence" 
-        data={filteredPolls} 
+        data={polls} 
         columns={columns} 
         onRowClick={handleRowClick}
       />
@@ -196,12 +202,17 @@ export default function Polls() {
         onSubmit={handleAddPoll}
         entityName="Sondage"
         fields={[
-          { name: 'question', label: 'Question du sondage', type: 'richtext', required: true },
-          { name: 'answers', label: 'Réponses possibles', type: 'array', required: true },
-          { name: 'allowMultipleAnswers', label: 'Autoriser plusieurs réponses', type: 'checkbox' },
-          { name: 'hasDeadline', label: 'Définir une date limite', type: 'checkbox' },
-          { name: 'deadlineDate', label: 'Date limite', type: 'datetime', conditional: 'hasDeadline' },
-          { name: 'imageUrl', label: 'Image (optionnelle)', type: 'url' }
+          { name: 'question', label: 'Question du sondage', type: 'text', required: true },
+          { name: 'pollAnswers', label: 'Réponses possibles', type: 'pollAnswers', required: true },
+          { name: 'allowMultiple', label: 'Autoriser plusieurs réponses', type: 'checkbox', required: false },
+          { name: 'deadline', label: 'Date limite de réponse', type: 'datetime', required: false },
+          { 
+            name: 'imageUrl', 
+            label: "Image du sondage", 
+            type: 'image', 
+            required: false,
+            helperText: 'Chargez un fichier ou collez une URL d\'image'
+          }
         ]}
       />
 

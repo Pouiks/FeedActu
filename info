@@ -1,0 +1,461 @@
+# 📋 Documentation Technique - FeedActu
+
+## 🏗️ **Architecture Générale**
+
+**FeedActu** est une application React de gestion de contenu multi-résidences développée pour UXCO. Elle permet aux gestionnaires de publier différents types de contenus (posts, événements, sondages, alertes, messages quotidiens) dans plusieurs résidences simultanément.
+
+### **Stack Technique**
+- **Frontend**: React 18 + Material-UI (MUI) v7
+- **Authentification**: Microsoft Azure AD (MSAL)
+- **Base de données**: PostgreSQL (via schémas JSON)
+- **Routage**: React Router v7
+- **Éditeur**: Draft.js (WYSIWYG)
+- **Calendrier**: FullCalendar
+- **Validation**: Zod + Schémas JSON personnalisés
+
+---
+
+## 📝 **SCHÉMAS COMPLETS DES PUBLICATIONS** ⚠️ **RÉFÉRENCE DÉFINITIVE**
+
+### **🔹 1. POSTS (Articles/Informations)**
+```javascript
+fields: [
+  { name: 'title', label: 'Titre', type: 'text', required: true },
+  { name: 'message', label: 'Message', type: 'wysiwyg', required: true },
+  { name: 'imageUrl', label: 'Image', type: 'image', required: false, 
+    helperText: 'Chargez un fichier ou collez une URL d\'image' },
+  { name: 'category', label: 'Catégorie', type: 'select', required: false,
+    options: [
+      { value: 'info', label: 'Information' },
+      { value: 'maintenance', label: 'Maintenance' },
+      { value: 'community', label: 'Vie communautaire' },
+      { value: 'security', label: 'Sécurité' },
+      { value: 'other', label: 'Autre' }
+    ]
+  }
+]
+// + Résidence(s) + Publier plus tard + Date/heure publication ultérieure
+```
+
+### **🔹 2. SONDAGES (Polls)**
+```javascript
+fields: [
+  { name: 'question', label: 'Question du sondage', type: 'text', required: true },
+  { name: 'pollAnswers', label: 'Réponses possibles', type: 'pollAnswers', required: true },
+  { name: 'allowMultiple', label: 'Autoriser plusieurs réponses', type: 'checkbox', required: false },
+  { name: 'deadline', label: 'Date limite de réponse', type: 'datetime', required: false },
+  { name: 'imageUrl', label: 'Image du sondage', type: 'image', required: false,
+    helperText: 'Chargez un fichier ou collez une URL d\'image' }
+]
+// + Résidence(s) + Publier plus tard + Date/heure publication ultérieure
+```
+
+### **🔹 3. ÉVÉNEMENTS (Events)**
+```javascript
+fields: [
+  { name: 'title', label: 'Titre de l\'événement', type: 'text', required: true },
+  { name: 'description', label: 'Description', type: 'wysiwyg', required: true },
+  { name: 'eventDateRange', label: 'Date et heure de l\'événement', type: 'daterange', required: true,
+    disablePast: true, helperText: 'Sélectionnez les dates et heures de début et de fin' },
+  { name: 'location', label: 'Lieu', type: 'text', required: true },
+  { name: 'maxParticipants', label: 'Nombre max de participants', type: 'number', required: false },
+  { name: 'imageUrl', label: 'Image de l\'événement', type: 'image', required: false,
+    helperText: 'Chargez un fichier ou collez une URL d\'image' }
+]
+// + Résidence(s) + Publier plus tard + Date/heure publication ultérieure
+```
+
+### **🔹 4. MESSAGES DU JOUR (Daily Messages)**
+```javascript
+fields: [
+  { name: 'title', label: 'Titre du message', type: 'text', required: true },
+  { name: 'message', label: 'Message du jour', type: 'wysiwyg', required: true }
+]
+// + Résidence(s) + Publier plus tard + Date/heure publication ultérieure
+```
+
+### **🔹 5. ALERTES (Alerts)** ⚠️ **À CORRIGER**
+```javascript
+fields: [
+  { name: 'alertType', label: 'Type d\'alerte', type: 'select', required: true,
+    options: [
+      { value: 'maintenance', label: 'Maintenance' },
+      { value: 'security', label: 'Sécurité' },
+      { value: 'emergency', label: 'Urgence' },
+      { value: 'service', label: 'Service' },
+      { value: 'weather', label: 'Météo' },
+      { value: 'other', label: 'Autre' }
+    ]
+  },
+  { name: 'message', label: 'Message d\'alerte', type: 'wysiwyg', required: true }
+]
+// + Résidence(s) + Publier plus tard + Date/heure publication ultérieure
+```
+
+### **🔧 CHAMPS COMMUNS À TOUS LES TYPES**
+```javascript
+// Automatiquement ajoutés par le système :
+commonFields: [
+  // Sélection des résidences (obligatoire)
+  { name: 'targetResidences', type: 'residence-selector', required: true },
+  
+  // Publication différée (optionnel)
+  { name: 'publishLater', label: 'Publier plus tard', type: 'checkbox', required: false },
+  { name: 'publishDateTime', label: 'Date et heure de publication', type: 'datetime', 
+    required: false, showIf: 'publishLater' }
+]
+```
+
+### **🎯 TYPES DE CHAMPS SUPPORTÉS**
+- `text` : Champ texte simple
+- `wysiwyg` : Éditeur riche (HTML)
+- `image` : Upload fichier OU URL (hybride)
+- `select` : Liste déroulante avec options
+- `checkbox` : Case à cocher
+- `number` : Champ numérique
+- `datetime` : Sélecteur date/heure
+- `daterange` : Deux DateTimePicker (début/fin)
+- `pollAnswers` : Gestion dynamique des réponses de sondage
+
+### **✅ CORRECTIONS APPLIQUÉES (Décembre 2024)**
+
+**🔧 Alertes** - Champs corrigés selon schéma de référence :
+- ❌ Ancien : `message` (richtext) + `type` + `priority`
+- ✅ Nouveau : `alertType` (select) + `message` (wysiwyg)
+
+**🔧 Posts** - Catégories standardisées :
+- ❌ Ancien : `info`, `event`, `urgent`
+- ✅ Nouveau : `info`, `maintenance`, `community`, `security`, `other`
+
+**🔧 Sondages** - Simplification des champs :
+- ❌ Ancien : `question` (wysiwyg) + `allowMultipleAnswers` + `hasDeadline` + `deadlineDate` (conditionnel)
+- ✅ Nouveau : `question` (text) + `allowMultiple` + `deadline` (datetime direct)
+
+**🔧 Messages du jour** - Harmonisation des noms :
+- ❌ Ancien : `content` (richtext)
+- ✅ Nouveau : `message` (wysiwyg)
+
+**🔧 Événements** - Déjà conformes au schéma ✅
+
+---
+
+## 🎯 **Fonctionnalités Principales**
+
+### **1. Système d'Authentification Multi-Tenant**
+📍 **Localisation**: `src/context/AuthContext.js`, `src/hooks/useAuth.js`
+
+**Fonctionnement**:
+- Authentification via Microsoft Azure AD avec MSAL
+- Gestion multi-tenant (plusieurs organisations)
+- Token JWT avec rafraîchissement automatique
+- Session persistante via localStorage
+- Mapping utilisateur-résidences
+
+**Sécurité**:
+- 5 niveaux de validation de sécurité
+- Contrôle d'accès par résidence
+- Logs d'audit pour tentatives suspectes
+- Protection contre l'escalade de privilèges
+
+**Interactions**:
+- Interface avec `ResidenceContext` pour la sélection de résidence
+- Middleware d'authentification pour toutes les actions sensibles
+- Intégration Microsoft Graph pour profils utilisateurs
+
+---
+
+### **2. Gestion Multi-Résidences**
+📍 **Localisation**: `src/context/ResidenceContext.js`, `src/userResidenceMapping.js`
+
+**Fonctionnement**:
+- Système de mapping email → résidences autorisées
+- Sélection de résidence active
+- Publication ciblée multi-résidences
+- Filtrage automatique par résidence
+
+**Composants Clés**:
+- `ResidenceTagSelector`: Sélection multi-résidences avec validation
+- `ResidenceSelector`: Changement de résidence active
+- `ResidenceMultiSelector`: Interface pour publications
+
+**Dépendances**:
+- Requiert authentification préalable
+- Synchronisé avec le contexte d'authentification
+- Valide les permissions utilisateur
+
+---
+
+### **3. Système de Publication Unifié**
+📍 **Localisation**: `src/components/ModalPublicationForm.js`
+
+**Types de Publications**:
+1. **Posts** - Articles et informations générales
+2. **Events** - Événements avec calendrier intégré
+3. **Polls** - Sondages avec choix multiples
+4. **Alerts** - Alertes urgentes
+5. **Daily Messages** - Messages quotidiens
+
+**Fonctionnalités**:
+- Interface unifiée pour tous types
+- Éditeur WYSIWYG intégré
+- Publication immédiate ou programmée
+- Aperçu mobile en temps réel
+- Validation multi-niveaux
+
+**Workflow**:
+1. Sélection des résidences cibles (sécurisée)
+2. Saisie du contenu avec validation
+3. Aperçu optionnel
+4. Publication ou sauvegarde en brouillon
+
+---
+
+### **4. Dashboard Analytics**
+📍 **Localisation**: `src/pages/Dashboard.js`
+
+**Métriques Affichées**:
+- Statistiques de publication par type
+- Activité récente
+- Actions rapides
+- Tendances par résidence
+
+**Widgets**:
+- Cartes statistiques avec tendances
+- Timeline d'activité récente
+- Boutons d'actions rapides
+- Graphiques de performance
+
+---
+
+### **5. Calendrier Intégré**
+📍 **Localisation**: `src/pages/EventsCalendar.js`
+
+**Fonctionnalités**:
+- Vue mensuelle/hebdomadaire/quotidienne
+- Filtrage par résidence
+- Création d'événements par glisser-déposer
+- Gestion des participants
+- Export iCal
+
+**Intégrations**:
+- Synchronisé avec la gestion d'événements
+- Filtres dynamiques par résidence
+- Interface responsive
+
+---
+
+## 🔧 **Composants Techniques**
+
+### **Gestion d'Erreurs Robuste**
+📍 **Localisation**: `src/utils/errorHandler.js`
+
+**Fonctionnalités**:
+- Retry automatique avec backoff exponentiel
+- Sauvegarde locale en cas d'échec
+- Messages d'erreur contextuels
+- Logs détaillés pour debugging
+
+### **Système de Logs**
+📍 **Localisation**: `src/utils/publicationLogger.js`
+
+**Capacités**:
+- Logging complet des publications
+- Traçabilité des actions utilisateur
+- Métriques de performance
+- Audit de sécurité
+
+### **Composants UI Réutilisables**
+- `DataTable`: Table avec tri, recherche, pagination
+- `PageHeader`: En-têtes de pages avec breadcrumbs
+- `RichTextEditor`: Éditeur WYSIWYG personnalisé
+- `MobilePreview`: Aperçu mobile des publications
+
+---
+
+## 🔐 **Sécurité et Validation**
+
+### **Niveaux de Sécurité**
+1. **Authentification préalable** - Vérification MSAL
+2. **Autorisation résidence** - Mapping utilisateur-résidences
+3. **Validation interface** - Contrôles client-side
+4. **Validation dynamique** - Vérifications temps réel
+5. **Validation finale** - Double contrôle avant soumission
+
+### **Schémas de Validation**
+📍 **Localisation**: `schemas/`
+- JSON Schema pour chaque type de publication
+- Validation côté client et préparation serveur
+- Contraintes de sécurité intégrées
+
+---
+
+## 🏗️ **Base de Données**
+
+### **Architecture PostgreSQL**
+📍 **Localisation**: `schemas/creation.sql`
+
+**Tables Principales**:
+- `posts`, `events`, `polls`, `alerts`, `daily_messages`
+- `user_profiles`, `event_participants`
+- `post_reactions`, `poll_votes`
+- Système de vues et statistiques en cache
+
+**Optimisations**:
+- Index partiels pour performance
+- Triggers pour mise à jour automatique
+- Fonctions PL/pgSQL pour requêtes complexes
+- Cache matérialisé pour analytics
+
+---
+
+## 🔄 **Flux de Données**
+
+### **Cycle de Vie d'une Publication**
+1. **Authentification** → Vérification utilisateur
+2. **Sélection Résidences** → Validation autorisations
+3. **Saisie Contenu** → Validation formulaire
+4. **Prévisualisation** → Génération aperçu
+5. **Publication** → Sauvegarde + Logs
+6. **Distribution** → Filtrage par résidence
+
+### **Interactions Composants**
+```
+AuthContext ←→ ResidenceContext
+     ↓              ↓
+   useAuth ←→ useResidence
+     ↓              ↓
+ModalPublicationForm ←→ ResidenceTagSelector
+     ↓
+PublicationLogger + ErrorHandler
+```
+
+---
+
+## 🚀 **Extensions Prévues**
+
+### **✅ Récemment Implémenté**
+- **Contexte de Publications Persistant** : Sauvegarde automatique locale + sync serveur transparente
+- **Auto-sauvegarde des Brouillons** : Restauration automatique après 24h
+- **Mode Hors-ligne Intelligent** : Création continue même sans connexion
+- **Gestion d'Images Hybride** : Upload de fichier OU URL au choix
+- **Interface Date/Heure Simplifiée** : Un seul champ daterange pour les événements
+- **Gestion Complète des Sondages** : Réponses multiples, échéances, images
+
+### **Court Terme**
+- Validation serveur (actuellement client-side uniquement)
+- API REST complète
+- Synchronisation automatique en arrière-plan
+
+### **Moyen Terme**
+- Notifications push
+- Templates de publication
+- Workflow d'approbation
+
+### **Long Terme**
+- Analytics avancés
+- IA pour suggestion de contenu
+- Application mobile native
+
+---
+
+## 📊 **Métriques et Monitoring**
+
+### **Performance**
+- Temps de chargement des pages
+- Taux de réussite des publications
+- Métriques d'engagement utilisateur
+
+### **Sécurité**
+- Tentatives d'accès non autorisées
+- Échecs d'authentification
+- Violations de permissions
+
+---
+
+## 🛠️ **Maintenance**
+
+### **Logs à Surveiller**
+- Erreurs d'authentification MSAL
+- Échecs de publication
+- Tentatives de sélection non autorisée
+
+### **Mises à Jour Régulières**
+- Tokens Azure AD
+- Schémas de validation
+- Mapping utilisateur-résidences
+
+### **Sauvegarde**
+- Publications échouées (localStorage)
+- Sessions utilisateur
+- Configuration résidences
+
+---
+
+## 📝 **Notes Techniques**
+
+### **Compatibilité**
+- React 18+ requis
+- Material-UI v7 (dernière version)
+- Node.js 16+ recommandé
+
+### **Configuration**
+- Variables d'environnement pour Azure AD
+- Mapping résidences dans `userResidenceMapping.js`
+- Thèmes CSS dans `src/styles/directus-theme.css`
+
+### **Tests**
+- Tests unitaires avec Jest
+- Tests de sécurité automatisés
+- Validation des schémas JSON
+
+---
+
+## 🔍 **Points d'Attention**
+
+### **Sécurité Critique**
+- Toujours valider les résidences sélectionnées
+- Ne jamais faire confiance aux données client-side
+- Logger toutes les actions sensibles
+
+### **Performance**
+- Optimiser les re-renders React
+- Utiliser la pagination pour grandes listes
+- Cache les données statiques
+
+### **UX/UI**
+- Interface responsive obligatoire
+- Feedback utilisateur pour toutes actions
+- Messages d'erreur compréhensibles
+
+---
+
+---
+
+## 🎉 **Dernières Améliorations - Version 0.2.0**
+
+### **🔄 Persistance Robuste (NOUVEAU)**
+- **PublicationsContext** : Système hybride local + serveur
+- **Auto-sauvegarde** : Brouillons sauvés automatiquement pendant la saisie
+- **Mode hors-ligne** : Fonctionnement complet sans connexion
+- **Synchronisation transparente** : Invisible pour l'utilisateur métier
+
+### **🖼️ Gestion d'Images Améliorée (NOUVEAU)**
+- **Type 'image'** : Upload de fichier OU saisie d'URL au choix
+- **Aperçu instantané** : Visualisation immédiate de l'image sélectionnée
+- **Validation automatique** : Vérification du format et affichage
+
+### **📅 Interface Événements Simplifiée (NOUVEAU)**
+- **Type 'daterange'** : Remplacement de 3 champs par 1 seul
+- **Validation intelligente** : Date de fin automatiquement après début
+- **UX améliorée** : Plus simple et intuitif pour l'utilisateur
+
+### **📊 Sondages Complets (CORRIGÉ)**
+- **Type 'pollAnswers'** : Gestion complète des réponses multiples
+- **Conditions dynamiques** : Champs qui apparaissent selon les choix
+- **Validation robuste** : Minimum 2 réponses requises
+
+---
+
+**Dernière mise à jour**: Décembre 2024  
+**Version**: 0.2.0  
+**Mainteneur**: Équipe UXCO

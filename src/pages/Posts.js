@@ -7,6 +7,7 @@ import PageHeader from '../components/PageHeader';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useResidence } from '../context/ResidenceContext';
+import { usePublications } from '../context/PublicationsContext';
 
 const mockPosts = [
   { 
@@ -84,10 +85,10 @@ const mockPosts = [
 ];
 
 export default function Posts() {
-  const { ensureAuthenticated, authenticatedPost, authorizedResidences } = useAuth();
+  const { ensureAuthenticated, authorizedResidences } = useAuth();
   const { currentResidenceId } = useResidence();
+  const { getPublications, addPublication } = usePublications();
   const [openModal, setOpenModal] = useState(false);
-  const [posts, setPosts] = useState(mockPosts);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const navigate = useNavigate();
 
@@ -99,19 +100,13 @@ export default function Posts() {
     { id: 'status', label: 'Statut', sortable: true, searchable: false },
   ];
 
-  // Filtrer les posts : afficher ceux qui concernent la résidence actuelle
-  const filteredPosts = posts.filter(post => {
-    // Nouveau filtrage : afficher les posts qui ciblent la résidence actuelle
-    return post.targetResidences && post.targetResidences.includes(currentResidenceId);
-  });
+  // Récupération des posts via le contexte (inclut déjà le filtrage par résidence)
+  const posts = getPublications('posts', currentResidenceId);
 
   const handleAddPost = async (newPost) => {
     try {
       // Vérifier l'authentification avant de procéder
       ensureAuthenticated('créer un nouveau post');
-      
-      console.log('✅ Utilisateur authentifié, création du post...');
-      console.log('📝 Données du post:', newPost);
       
       // Validation de sécurité des résidences
       if (!newPost.targetResidences || newPost.targetResidences.length === 0) {
@@ -127,18 +122,8 @@ export default function Posts() {
         throw new Error('Vous n\'êtes pas autorisé à publier dans certaines résidences sélectionnées');
       }
       
-      // Utiliser le middleware pour une action authentifiée
-      const result = await authenticatedPost('/api/posts', newPost);
-      
-      console.log('✅ Post créé avec succès:', result);
-      
-      // Ajouter le post à l'état local (simulation)
-      const postWithId = { 
-        ...newPost, 
-        id: Date.now(),
-        residence_id: currentResidenceId // Garder pour compatibilité ascendante
-      };
-      setPosts(prev => [...prev, postWithId]);
+      // Utiliser le contexte pour la création - Experience utilisateur immédiate
+      await addPublication('posts', newPost);
       
       // Fermer le modal et afficher une notification
       setOpenModal(false);
@@ -223,9 +208,9 @@ export default function Posts() {
           }
         ]}
         stats={[
-          { label: 'Total', value: filteredPosts.length },
-          { label: 'Publiés', value: filteredPosts.filter(p => p.status === 'Publié').length },
-          { label: 'Brouillons', value: filteredPosts.filter(p => p.status === 'Brouillon').length }
+          { label: 'Total', value: posts.length },
+          { label: 'Publiés', value: posts.filter(p => p.status === 'Publié').length },
+          { label: 'Brouillons', value: posts.filter(p => p.status === 'Brouillon').length }
         ]}
       />
 
@@ -234,7 +219,7 @@ export default function Posts() {
         <CardContent sx={{ p: 0 }}>
           <DataTable
             className="directus-table"
-            data={filteredPosts}
+            data={posts}
             columns={columns}
             onRowClick={handleRowClick}
             searchPlaceholder="Rechercher dans les posts..."
@@ -280,11 +265,11 @@ export default function Posts() {
           },
           { 
             name: 'imageUrl', 
-            label: "URL de l'image", 
-            type: 'url', 
+            label: "Image", 
+            type: 'image', 
             required: false,
             placeholder: 'https://exemple.com/image.jpg',
-            helperText: 'URL complète vers une image (optionnel)'
+            helperText: 'Chargez un fichier ou collez une URL d\'image'
           },
           {
             name: 'category',
@@ -293,8 +278,10 @@ export default function Posts() {
             required: false,
             options: [
               { value: 'info', label: 'Information' },
-              { value: 'event', label: 'Événement' },
-              { value: 'urgent', label: 'Urgent' }
+              { value: 'maintenance', label: 'Maintenance' },
+              { value: 'community', label: 'Vie communautaire' },
+              { value: 'security', label: 'Sécurité' },
+              { value: 'other', label: 'Autre' }
             ]
           }
         ]}

@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Paper, Typography, Box, Chip, TextField, Button, Stack } from '@mui/material';
 import BackButton from '../components/BackButton';
 import RichTextEditor from '../components/RichTextEditor';
+import { usePublications } from '../context/PublicationsContext';
 
 // Données mockées (synchronisées avec Posts.js)
 const mockPosts = [
@@ -70,13 +71,14 @@ const mockPosts = [
 
 export default function PostDetail() {
   const { id } = useParams();
+  const { getPublicationById, updatePublication } = usePublications();
   const [post, setPost] = useState(null);
   const [editedPost, setEditedPost] = useState({});
   const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
-    // Simule la récupération du post par ID
-    const foundPost = mockPosts.find(p => p.id === parseInt(id));
+    // Récupération via le contexte
+    const foundPost = getPublicationById('posts', id);
     if (foundPost) {
       setPost(foundPost);
       setEditedPost({ 
@@ -85,7 +87,7 @@ export default function PostDetail() {
         imageUrl: foundPost.imageUrl || ''
       });
     }
-  }, [id]);
+  }, [id, getPublicationById]);
 
   // Vérifie si des modifications ont été faites
   useEffect(() => {
@@ -106,16 +108,21 @@ export default function PostDetail() {
     }));
   };
 
-  const handleSave = () => {
-    console.log('Sauvegarde du post:', { ...post, ...editedPost });
-    
-    // Simule la sauvegarde
-    const updatedPost = { ...post, ...editedPost };
-    setPost(updatedPost);
-    setIsDirty(false);
-    
-    // Ici, on ferait l'appel API pour sauvegarder
-    alert('Post sauvegardé avec succès !');
+  const handleSave = async () => {
+    try {
+      // Mise à jour via le contexte
+      await updatePublication('posts', post.id, editedPost);
+      
+      // Mise à jour locale de l'état
+      const updatedPost = { ...post, ...editedPost };
+      setPost(updatedPost);
+      setIsDirty(false);
+      
+      alert('Post sauvegardé avec succès !');
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde:', error);
+      alert('Erreur lors de la sauvegarde');
+    }
   };
 
   if (!post) {

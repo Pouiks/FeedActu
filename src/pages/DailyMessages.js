@@ -171,7 +171,7 @@ export default function DailyMessages() {
         entityName="Message du jour"
         fields={[
           { name: 'title', label: 'Titre du message', type: 'text', required: true },
-          { name: 'content', label: 'Contenu', type: 'richtext', required: true }
+          { name: 'message', label: 'Message du jour', type: 'wysiwyg', required: true }
         ]}
       />
 

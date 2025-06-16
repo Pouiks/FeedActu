@@ -48,6 +48,8 @@ export default function ModalPublicationForm({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isFirstOpen = useRef(true);
+  const [startPickerOpen, setStartPickerOpen] = useState(false);
+  const [endPickerOpen, setEndPickerOpen] = useState(false);
 
   // Validation de sécurité pour les résidences
   const validateResidencesSecurity = (residenceIds) => {
@@ -70,13 +72,62 @@ export default function ModalPublicationForm({
     if (open) {
       // Ne réinitialiser que si c'est la première ouverture ou si le modal était fermé
       if (isFirstOpen.current || !formData || Object.keys(formData).length === 0) {
-        setFormData(initialValues || {});
+        // Tenter de charger un brouillon existant
+        let loadedFromDraft = false;
         
-        // Auto-sélection de la résidence unique si applicable
-        if (authorizedResidences?.length === 1) {
-          setSelectedResidences([authorizedResidences[0].residenceId]);
-        } else {
-          setSelectedResidences([]);
+        if (entityName && user?.userId) {
+          const draftKey = `draft_${entityName}_${user.userId}`;
+          const savedDraft = localStorage.getItem(draftKey);
+          
+          if (savedDraft) {
+            try {
+              const draftData = JSON.parse(savedDraft);
+              const timeDiff = Date.now() - draftData.lastSaved;
+              
+              // Si le brouillon a moins de 24h, le restaurer
+              if (timeDiff < 24 * 60 * 60 * 1000) {
+                setFormData(draftData);
+                setSelectedResidences(draftData.selectedResidences || []);
+                setPublishLater(draftData.publishLater || false);
+                if (draftData.publishDateTime) {
+                  setPublishDateTime(new Date(draftData.publishDateTime));
+                }
+                if (draftData.pollAnswers) {
+                  setPollAnswers(draftData.pollAnswers);
+                }
+                loadedFromDraft = true;
+                console.log('📄 Brouillon restauré silencieusement');
+              }
+            } catch (error) {
+              console.warn('Erreur lors du chargement du brouillon:', error);
+            }
+          }
+        }
+        
+        // Si pas de brouillon, initialiser normalement
+        if (!loadedFromDraft) {
+          const initialData = { ...initialValues };
+          
+          // Initialiser automatiquement les champs daterange
+          fields.forEach(field => {
+            if (field.type === 'daterange' && !initialData[`${field.name}Start`]) {
+              const now = new Date();
+              const endTime = new Date();
+              endTime.setHours(endTime.getHours() + 1); // +1h par défaut
+              
+              initialData[`${field.name}Start`] = now;
+              initialData[`${field.name}End`] = endTime;
+            }
+          });
+          
+          setFormData(initialData);
+          
+          // Auto-sélection de la résidence unique si applicable
+          if (authorizedResidences?.length === 1) {
+            setSelectedResidences([authorizedResidences[0].residenceId]);
+          } else {
+            setSelectedResidences([]);
+          }
         }
         
         isFirstOpen.current = false;
@@ -85,10 +136,26 @@ export default function ModalPublicationForm({
       // Reset quand le modal se ferme pour la prochaine ouverture
       isFirstOpen.current = true;
     }
-  }, [open, authorizedResidences]);
+  }, [open, authorizedResidences, entityName, user]);
 
   const handleChange = (fieldName, value) => {
-    setFormData(prev => ({ ...prev, [fieldName]: value }));
+    const updatedData = { ...formData, [fieldName]: value };
+    setFormData(updatedData);
+    
+    // Auto-sauvegarde silencieuse du brouillon
+    if (open && entityName && user?.userId) {
+      const draftKey = `draft_${entityName}_${user.userId}`;
+      const draftData = {
+        ...updatedData,
+        selectedResidences,
+        publishLater,
+        publishDateTime: publishDateTime.toISOString(),
+        pollAnswers: pollAnswers,
+        lastSaved: Date.now()
+      };
+      localStorage.setItem(draftKey, JSON.stringify(draftData));
+    }
+    
     // Nettoyer l'erreur quand l'utilisateur corrige
     if (errors[fieldName]) {
       setErrors(prev => ({ ...prev, [fieldName]: null }));
@@ -127,16 +194,50 @@ export default function ModalPublicationForm({
   const validateForm = () => {
     const newErrors = {};
     
-    // Validation des champs de formulaire
+    console.log('🔍 Validation des champs...');
+    console.log('🔍 DEBUG - formData:', formData);
+    console.log('🔍 DEBUG - selectedResidences:', selectedResidences);
+    console.log('🔍 DEBUG - fields:', fields);
+    
+    // Validation des champs de formulaire (sauf pollAnswers qui a sa propre validation)
     fields.forEach(field => {
+      // Skip pollAnswers car ils ont leur propre validation spéciale
+      if (field.type === 'pollAnswers') {
+        return;
+      }
+      
+      // Validation spéciale pour daterange
+      if (field.type === 'daterange') {
+        if (field.required) {
+          const startValue = formData[`${field.name}Start`];
+          const endValue = formData[`${field.name}End`];
+          
+          console.log(`🔍 DEBUG - Daterange ${field.name}: start=${startValue}, end=${endValue}`);
+          
+          if (!startValue || !endValue) {
+            newErrors[field.name] = `${field.label} est requis`;
+          } else if (new Date(endValue) <= new Date(startValue)) {
+            newErrors[field.name] = `L'heure de fin doit être après l'heure de début`;
+          }
+        }
+        return;
+      }
+      
+      // Validation normale des champs
+      console.log(`🔍 DEBUG - Champ ${field.name} (${field.type}): required=${field.required}, value="${formData[field.name]}"`);
+      
       if (field.required && !formData[field.name]) {
         newErrors[field.name] = `${field.label} est requis`;
+        console.log(`❌ Erreur: ${field.name} est requis mais vide`);
       }
     });
 
     // Validation spéciale pour les réponses de sondage
     if (fields.some(f => f.type === 'pollAnswers')) {
       const validAnswers = pollAnswers.filter(answer => answer.trim() !== '');
+      
+      console.log('🔍 DEBUG - pollAnswers:', pollAnswers, 'validAnswers:', validAnswers);
+      
       if (validAnswers.length < 2) {
         newErrors.pollAnswers = 'Au moins 2 réponses sont requises';
       }
@@ -144,14 +245,22 @@ export default function ModalPublicationForm({
 
     // Validation critique des résidences sélectionnées
     const secureResidences = validateResidencesSecurity(selectedResidences);
+    
+    console.log('🔍 DEBUG - Résidences: selected=', selectedResidences, 'secure=', secureResidences);
+    
     if (secureResidences.length === 0) {
       newErrors.residences = 'Vous devez sélectionner au moins une résidence autorisée';
     } else if (secureResidences.length !== selectedResidences.length) {
       newErrors.residences = 'Certaines résidences sélectionnées ne sont pas autorisées';
     }
-
+    
+    console.log('🔍 DEBUG - newErrors AVANT setErrors:', newErrors);
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    
+    const isValid = Object.keys(newErrors).length === 0;
+    console.log('🔍 DEBUG - Validation result:', isValid);
+    
+    return isValid;
   };
 
   const isDateValid = () => {
@@ -165,10 +274,14 @@ export default function ModalPublicationForm({
     setIsSubmitting(true);
     
     try {
-      if (!validateForm()) {
+      const validationResult = validateForm();
+      if (!validationResult) {
         console.warn('🚨 Validation échouée pour la publication');
+        // Les erreurs détaillées sont déjà loggées dans validateForm()
         return;
       }
+      
+      console.log('✅ Validation réussie, création de la publication...');
 
       // Validation finale de sécurité
       const finalSecureResidences = validateResidencesSecurity(selectedResidences);
@@ -206,37 +319,45 @@ export default function ModalPublicationForm({
       const userContext = { user, authorizedResidences };
       PublicationLogger.logPublication(publicationType, newItem, 'PREPARING', userContext);
 
-      // 🚀 Exécution avec gestion d'erreurs robuste
-      await executeWithErrorHandling(
-        async () => {
-          return await onSubmit(newItem);
-        },
-        {
-          type: publicationType,
-          data: newItem,
-          userContext,
-          onSuccess: (result, retryCount) => {
-            console.log(`✅ ${entityName} créé avec succès${retryCount > 0 ? ` après ${retryCount} tentatives` : ''}`);
-            handleClose();
-            resetForm();
-          },
-          onError: (error) => {
-            const friendlyMessage = getUserFriendlyMessage(error, { type: entityName.toLowerCase() });
-            setErrors({ 
-              submit: friendlyMessage 
-            });
-          },
-          onRetry: (error, attempt) => {
-            console.log(`🔄 Tentative ${attempt}/3 pour ${entityName}`);
-          }
+      // 🚀 Exécution simplifiée pour débugger
+      console.log('🔍 DEBUG - Tentative d\'appel onSubmit avec newItem:', newItem);
+      
+      try {
+        const result = await onSubmit(newItem);
+        console.log('✅ onSubmit réussi, résultat:', result);
+        
+        handleClose();
+        resetForm();
+        
+      } catch (submitError) {
+        console.error('❌ Erreur dans onSubmit:', submitError);
+        
+        // Message d'erreur utilisateur friendly
+        let friendlyMessage = 'Erreur lors de la création du sondage';
+        
+        if (submitError.message) {
+          friendlyMessage = submitError.message;
+        } else if (typeof submitError === 'string') {
+          friendlyMessage = submitError;
         }
-      );
+        
+        setErrors({ 
+          submit: friendlyMessage 
+        });
+      }
 
     } catch (error) {
       console.error(`❌ Erreur finale lors de la création du ${entityName}:`, error);
       
       // Message d'erreur utilisateur friendly
-      const friendlyMessage = getUserFriendlyMessage(error, { type: entityName.toLowerCase() });
+      let friendlyMessage = `Erreur lors de la création du ${entityName.toLowerCase()}`;
+      
+      if (error.message) {
+        friendlyMessage = error.message;
+      } else if (typeof error === 'string') {
+        friendlyMessage = error;
+      }
+      
       setErrors({ 
         submit: friendlyMessage 
       });
@@ -253,6 +374,12 @@ export default function ModalPublicationForm({
     setPublishDateTime(new Date());
     setSelectedResidences([]);
     setErrors({});
+    
+    // Nettoyer le brouillon après reset
+    if (entityName && user?.userId) {
+      const draftKey = `draft_${entityName}_${user.userId}`;
+      localStorage.removeItem(draftKey);
+    }
   };
 
   // Générer les données pour la preview mobile
@@ -291,19 +418,21 @@ export default function ModalPublicationForm({
 
   // Fonction pour vérifier si un champ doit être affiché (logique conditionnelle)
   const shouldShowField = (field) => {
-    if (!field.conditionalOn) return true;
-    
-    const conditionField = fields.find(f => f.name === field.conditionalOn);
+    // Vérifier les deux types de conditions possibles
+    const conditionField = field.conditionalOn || field.showIf;
     if (!conditionField) return true;
     
+    const refField = fields.find(f => f.name === conditionField);
+    if (!refField) return true;
+    
     // Pour les checkboxes, vérifier si elle est cochée
-    if (conditionField.type === 'checkbox') {
-      return formData[field.conditionalOn] === true;
+    if (refField.type === 'checkbox') {
+      return formData[conditionField] === true;
     }
     
     // Pour les selects, vérifier si la valeur n'est pas 'none' ou vide
-    if (conditionField.type === 'select') {
-      const value = formData[field.conditionalOn];
+    if (refField.type === 'select') {
+      const value = formData[conditionField];
       return value && value !== 'none' && value !== '';
     }
     
@@ -351,6 +480,105 @@ export default function ModalPublicationForm({
             label={field.label}
             sx={{ alignItems: 'flex-start', mt: 1 }}
           />
+        );
+
+      case 'image':
+        return (
+          <Box key={field.name}>
+            <Typography variant="subtitle1" gutterBottom>
+              {field.label} {field.required && <span style={{color: 'red'}}>*</span>}
+            </Typography>
+            
+            {/* Mode URL - TextField classique */}
+            <TextField
+              label="URL de l'image"
+              type="url"
+              value={formData[field.name]?.type === 'url' ? formData[field.name].url : typeof formData[field.name] === 'string' ? formData[field.name] : ''}
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleChange(field.name, {
+                    url: e.target.value,
+                    type: 'url'
+                  });
+                } else {
+                  handleChange(field.name, null);
+                }
+              }}
+              placeholder={field.placeholder}
+              fullWidth
+              sx={{ mb: 1 }}
+            />
+            
+            <Typography variant="caption" sx={{ display: 'block', mb: 1, color: 'text.secondary' }}>
+              ou
+            </Typography>
+            
+            {/* Mode Upload - Input file */}
+            <Input
+              type="file"
+              inputProps={{ 
+                accept: 'image/*',
+                style: { padding: '8px 0' }
+              }}
+              onChange={(e) => {
+                const file = e.target.files[0];
+                if (file) {
+                  // Stocker le fichier avec ses métadonnées pour traitement ultérieur
+                  const fileData = {
+                    file: file,
+                    url: URL.createObjectURL(file),
+                    type: 'file',
+                    name: file.name,
+                    size: file.size
+                  };
+                  handleChange(field.name, fileData);
+                  console.log('📎 Image locale sélectionnée:', file.name, file.size, 'bytes');
+                }
+              }}
+              fullWidth
+              sx={{ mb: 1 }}
+            />
+            
+            {/* Aperçu de l'image */}
+            {formData[field.name] && (
+              <Box sx={{ mt: 1 }}>
+                <Typography variant="caption" gutterBottom>
+                  Aperçu {formData[field.name].type === 'file' ? '(fichier local)' : '(URL)'} :
+                </Typography>
+                <Box
+                  component="img"
+                  src={formData[field.name].url || formData[field.name]}
+                  alt="Aperçu"
+                  sx={{
+                    maxWidth: '100%',
+                    maxHeight: 200,
+                    display: 'block',
+                    borderRadius: 1,
+                    border: '1px solid #ddd'
+                  }}
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                  }}
+                />
+                {formData[field.name].type === 'file' && (
+                  <Typography variant="caption" color="primary" sx={{ mt: 0.5, display: 'block' }}>
+                    ✓ Fichier sélectionné: {formData[field.name].name} ({Math.round(formData[field.name].size / 1024)} KB)
+                  </Typography>
+                )}
+              </Box>
+            )}
+            
+            {errors[field.name] && (
+              <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
+                {errors[field.name]}
+              </Typography>
+            )}
+            {field.helperText && !errors[field.name] && (
+              <Typography variant="caption" color="textSecondary" sx={{ mt: 0.5, display: 'block' }}>
+                {field.helperText}
+              </Typography>
+            )}
+          </Box>
         );
 
       case 'file':
@@ -423,7 +651,7 @@ export default function ModalPublicationForm({
           <LocalizationProvider key={field.name} dateAdapter={AdapterDateFns} adapterLocale={fr}>
             <DatePicker
               label={field.label}
-              value={formData[field.name] || null}
+              value={formData[field.name] ? new Date(formData[field.name]) : null}
               onChange={(newValue) => handleChange(field.name, newValue)}
               slotProps={{ 
                 textField: { 
@@ -443,7 +671,7 @@ export default function ModalPublicationForm({
           <LocalizationProvider key={field.name} dateAdapter={AdapterDateFns} adapterLocale={fr}>
             <TimePicker
               label={field.label}
-              value={formData[field.name] || null}
+              value={formData[field.name] ? new Date(formData[field.name]) : null}
               onChange={(newValue) => handleChange(field.name, newValue)}
               slotProps={{ 
                 textField: { 
@@ -463,7 +691,7 @@ export default function ModalPublicationForm({
           <LocalizationProvider key={field.name} dateAdapter={AdapterDateFns} adapterLocale={fr}>
             <DateTimePicker
               label={field.label}
-              value={formData[field.name] || new Date()}
+              value={formData[field.name] ? new Date(formData[field.name]) : new Date()}
               onChange={(newValue) => handleChange(field.name, newValue)}
               slotProps={{ 
                 textField: { 
@@ -477,6 +705,94 @@ export default function ModalPublicationForm({
               disablePast={field.disablePast}
             />
           </LocalizationProvider>
+        );
+
+      case 'daterange':
+        return (
+          <Box key={field.name}>
+            <Typography variant="subtitle1" gutterBottom>
+              {field.label} {field.required && <span style={{color: 'red'}}>*</span>}
+            </Typography>
+            
+            {/* Deux champs côte à côte */}
+            <Stack direction="row" spacing={2}>
+              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={fr}>
+                <DateTimePicker
+                  label="Heure de début"
+                  value={formData[`${field.name}Start`] ? new Date(formData[`${field.name}Start`]) : new Date()}
+                  onChange={(newValue) => {
+                    handleChange(`${field.name}Start`, newValue);
+                    // Auto-ajuster la fin si nécessaire
+                    if (formData[`${field.name}End`] && newValue >= new Date(formData[`${field.name}End`])) {
+                      const endTime = new Date(newValue);
+                      endTime.setHours(endTime.getHours() + 1); // +1h par défaut
+                      handleChange(`${field.name}End`, endTime);
+                    }
+                  }}
+                  open={startPickerOpen}
+                  onOpen={() => setStartPickerOpen(true)}
+                  onClose={() => setStartPickerOpen(false)}
+                  slotProps={{ 
+                    textField: { 
+                      required: field.required,
+                      error: !!errors[field.name],
+                      fullWidth: true,
+                      onClick: () => setStartPickerOpen(true),
+                      InputProps: {
+                        readOnly: true,
+                        sx: { cursor: 'pointer' }
+                      }
+                    }
+                  }}
+                  ampm={false}
+                  disablePast={field.disablePast}
+                  format="dd/MM/yyyy HH:mm"
+                />
+              </LocalizationProvider>
+              
+              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={fr}>
+                <DateTimePicker
+                  label="Heure de fin"
+                  value={formData[`${field.name}End`] ? new Date(formData[`${field.name}End`]) : (() => {
+                    const defaultEnd = new Date();
+                    defaultEnd.setHours(defaultEnd.getHours() + 1);
+                    return defaultEnd;
+                  })()}
+                  onChange={(newValue) => handleChange(`${field.name}End`, newValue)}
+                  open={endPickerOpen}
+                  onOpen={() => setEndPickerOpen(true)}
+                  onClose={() => setEndPickerOpen(false)}
+                  slotProps={{ 
+                    textField: { 
+                      required: field.required,
+                      error: !!errors[field.name],
+                      fullWidth: true,
+                      onClick: () => setEndPickerOpen(true),
+                      InputProps: {
+                        readOnly: true,
+                        sx: { cursor: 'pointer' }
+                      }
+                    }
+                  }}
+                  ampm={false}
+                  disablePast={field.disablePast}
+                  format="dd/MM/yyyy HH:mm"
+                  minDateTime={formData[`${field.name}Start`] ? new Date(formData[`${field.name}Start`]) : undefined}
+                />
+              </LocalizationProvider>
+            </Stack>
+            
+            {errors[field.name] && (
+              <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
+                {errors[field.name]}
+              </Typography>
+            )}
+            {field.helperText && !errors[field.name] && (
+              <Typography variant="caption" color="textSecondary" sx={{ mt: 0.5, display: 'block' }}>
+                {field.helperText}
+              </Typography>
+            )}
+          </Box>
         );
 
       case 'wysiwyg':

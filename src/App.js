@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { Box, CircularProgress, Typography } from '@mui/material';
+import { PublicationsProvider } from './context/PublicationsContext';
 import Login from './pages/Login';
 import MainLayout from './components/MainLayout';
 import Dashboard from './pages/Dashboard';
@@ -58,27 +59,29 @@ function App() {
   console.log('🔄 App render - isLoading:', isLoading, 'isAuthenticated:', isAuthenticated);
 
   return (
-<Routes>
-  <Route path="/login" element={<Login />} />
-  <Route element={
-    <ProtectedRoute>
-      <MainLayout />
-    </ProtectedRoute>
-  }>
-    <Route path="/" element={<Dashboard />} />
-    <Route path="/posts" element={<Posts />} />
-    <Route path="/posts/:id" element={<PostDetail />} />
-    <Route path="/polls" element={<Polls />} />
-    <Route path="/polls/:id" element={<PollDetail />} />
-    <Route path="/events" element={<Events />} />
-    <Route path="/events/:id" element={<EventDetail />} />
-    <Route path="/daily-messages" element={<DailyMessages />} />
-    <Route path="/daily-messages/:id" element={<DailyMessageDetail />} />
-    <Route path="/alerts" element={<Alerts />} />
-    <Route path="/alerts/:id" element={<AlertDetail />} />
-    <Route path="/events-calendar" element={<EventsCalendar />} />
-  </Route>
-</Routes>
+    <PublicationsProvider>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route element={
+          <ProtectedRoute>
+            <MainLayout />
+          </ProtectedRoute>
+        }>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/posts" element={<Posts />} />
+          <Route path="/posts/:id" element={<PostDetail />} />
+          <Route path="/polls" element={<Polls />} />
+          <Route path="/polls/:id" element={<PollDetail />} />
+          <Route path="/events" element={<Events />} />
+          <Route path="/events/:id" element={<EventDetail />} />
+          <Route path="/daily-messages" element={<DailyMessages />} />
+          <Route path="/daily-messages/:id" element={<DailyMessageDetail />} />
+          <Route path="/alerts" element={<Alerts />} />
+          <Route path="/alerts/:id" element={<AlertDetail />} />
+          <Route path="/events-calendar" element={<EventsCalendar />} />
+        </Route>
+      </Routes>
+    </PublicationsProvider>
   );
 }
 
