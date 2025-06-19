@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Button, Alert, Snackbar } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import DataTable from '../components/DataTable';
@@ -7,6 +7,7 @@ import PageHeader from '../components/PageHeader';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useResidence } from '../context/ResidenceContext';
+import { usePublications } from '../context/PublicationsContext';
 
 const mockAlerts = [
   { 
@@ -86,8 +87,9 @@ const mockAlerts = [
 export default function Alerts() {
   const { ensureAuthenticated, authenticatedPost } = useAuth();
   const { currentResidenceId, currentResidenceName } = useResidence();
+  const { getPublications, addPublication, publishDraft, updatePublication, deletePublication } = usePublications();
   const [openModal, setOpenModal] = useState(false);
-  const [alerts, setAlerts] = useState(mockAlerts);
+  const [editingAlert, setEditingAlert] = useState(null);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const navigate = useNavigate();
 
@@ -99,24 +101,13 @@ export default function Alerts() {
     { id: 'status', label: 'Statut', sortable: true, searchable: false },
   ];
 
-  const filteredAlerts = alerts.filter(alert => alert.residence_id === currentResidenceId);
+  const alerts = getPublications('alerts', currentResidenceId);
 
   const handleAddAlert = async (newAlert) => {
     try {
       ensureAuthenticated('créer une nouvelle alerte');
       
-      console.log('✅ Utilisateur authentifié, création de l\'alerte...');
-      
-      const result = await authenticatedPost('/api/alerts', newAlert);
-      
-      console.log('✅ Alerte créée avec succès:', result);
-      
-      const alertWithId = { 
-        ...newAlert, 
-        id: Date.now(), 
-        residence_id: currentResidenceId
-      };
-      setAlerts(prev => [...prev, alertWithId]);
+      await addPublication('alerts', newAlert);
       
       setOpenModal(false);
       setNotification({
@@ -186,16 +177,20 @@ export default function Alerts() {
           }
         ]}
         stats={[
-          { label: 'Alertes actives', value: filteredAlerts.filter(a => a.status === 'Publié').length.toString() },
-          { label: 'Alertes critiques', value: filteredAlerts.filter(a => a.priority === 'critical').length.toString() }
+          { label: 'Alertes actives', value: alerts.filter(a => a.status === 'Publié').length.toString() },
+          { label: 'Alertes critiques', value: alerts.filter(a => a.priority === 'critical').length.toString() }
         ]}
       />
 
       <DataTable 
         title="Alertes de ma résidence" 
-        data={filteredAlerts} 
+        data={alerts} 
         columns={columns} 
         onRowClick={handleRowClick}
+        showActions={true}
+        onPublishDraft={(alert) => publishDraft('alerts', alert.id)}
+        onEditItem={(alert) => { setEditingAlert(alert); setOpenModal(true); }}
+        onDeleteItem={(alert) => { if(window.confirm(`Supprimer cette alerte ?`)) deletePublication('alerts', alert.id); }}
       />
 
       <ModalPublicationForm
@@ -204,15 +199,39 @@ export default function Alerts() {
         onSubmit={handleAddAlert}
         entityName="Alerte"
         fields={[
-          { name: 'alertType', label: 'Type d\'alerte', type: 'select', required: true, options: [
-            { value: 'maintenance', label: 'Maintenance' },
-            { value: 'security', label: 'Sécurité' },
-            { value: 'emergency', label: 'Urgence' },
-            { value: 'service', label: 'Service' },
-            { value: 'weather', label: 'Météo' },
-            { value: 'other', label: 'Autre' }
-          ]},
-          { name: 'message', label: 'Message d\'alerte', type: 'wysiwyg', required: true }
+          { name: 'message', label: 'Message de l\'alerte', type: 'wysiwyg', required: true },
+          {
+            name: 'type',
+            label: 'Type d\'alerte',
+            type: 'select',
+            required: true,
+            options: [
+              { value: 'maintenance', label: 'Maintenance' },
+              { value: 'security', label: 'Sécurité' },
+              { value: 'weather', label: 'Météo' },
+              { value: 'water', label: 'Eau/Gaz/Électricité' },
+              { value: 'other', label: 'Autre' }
+            ]
+          },
+          {
+            name: 'priority',
+            label: 'Priorité',
+            type: 'select',
+            required: true,
+            options: [
+              { value: 'low', label: 'Faible' },
+              { value: 'normal', label: 'Normale' },
+              { value: 'high', label: 'Élevée' },
+              { value: 'critical', label: 'Critique' }
+            ]
+          },
+          { 
+            name: 'publicationDate', 
+            label: 'Date de publication', 
+            type: 'datetime', 
+            required: true,
+            helperText: 'Date et heure de publication de l\'alerte'
+          }
         ]}
       />
 

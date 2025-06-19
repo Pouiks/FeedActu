@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Paper, Typography, Box, Chip, TextField, Button, Stack } from '@mui/material';
+import { Paper, Typography, Box, Chip, TextField, Button, Stack, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { DateTimePicker } from '@mui/x-date-pickers';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { fr } from 'date-fns/locale';
 import BackButton from '../components/BackButton';
 import RichTextEditor from '../components/RichTextEditor';
 import { usePublications } from '../context/PublicationsContext';
@@ -84,7 +88,9 @@ export default function PostDetail() {
       setEditedPost({ 
         title: foundPost.title || '',
         message: foundPost.message || '',
-        imageUrl: foundPost.imageUrl || ''
+        imageUrl: foundPost.imageUrl || '',
+        category: foundPost.category || '',
+        publicationDate: foundPost.publicationDate || new Date().toISOString()
       });
     }
   }, [id, getPublicationById]);
@@ -96,7 +102,9 @@ export default function PostDetail() {
     const hasChanges = 
       editedPost.title !== post.title ||
       editedPost.message !== post.message ||
-      editedPost.imageUrl !== post.imageUrl;
+      editedPost.imageUrl !== post.imageUrl ||
+      editedPost.category !== post.category ||
+      editedPost.publicationDate !== post.publicationDate;
     
     setIsDirty(hasChanges);
   }, [editedPost, post]);
@@ -177,7 +185,41 @@ export default function PostDetail() {
             onChange={(e) => handleFieldChange('title', e.target.value)}
             fullWidth
             variant="outlined"
+            required
           />
+
+          {/* Sélecteur de catégorie */}
+          <FormControl fullWidth>
+            <InputLabel>Catégorie</InputLabel>
+            <Select
+              value={editedPost.category}
+              onChange={(e) => handleFieldChange('category', e.target.value)}
+              label="Catégorie"
+            >
+              <MenuItem value="info">Information</MenuItem>
+              <MenuItem value="event">Événement</MenuItem>
+              <MenuItem value="urgent">Urgent</MenuItem>
+              <MenuItem value="maintenance">Maintenance</MenuItem>
+              <MenuItem value="community">Vie communautaire</MenuItem>
+            </Select>
+          </FormControl>
+
+          {/* Date de publication modifiable */}
+          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={fr}>
+            <DateTimePicker
+              label="Date de publication"
+              value={editedPost.publicationDate ? new Date(editedPost.publicationDate) : null}
+              onChange={(newValue) => handleFieldChange('publicationDate', newValue?.toISOString())}
+              slotProps={{ 
+                textField: { 
+                  fullWidth: true,
+                  required: true,
+                  helperText: "Date et heure de publication du post"
+                }
+              }}
+              ampm={false}
+            />
+          </LocalizationProvider>
 
           {/* URL d'image */}
           <TextField

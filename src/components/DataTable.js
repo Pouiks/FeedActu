@@ -1,17 +1,30 @@
 import React, { useState, useMemo } from 'react';
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TableSortLabel,
-  TextField, Paper, Chip, Box, Typography
+  TextField, Paper, Chip, Box, Typography, IconButton, Menu, MenuItem
 } from '@mui/material';
+import { MoreVert, Publish, Edit, Delete } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { userResidenceMapping } from '../userResidenceMapping';
 
-export default function DataTable({ title, data = [], columns = [], onRowClick }) {
+export default function DataTable({ 
+  title, 
+  data = [], 
+  columns = [], 
+  onRowClick,
+  // NOUVEAU : Actions par ligne
+  onPublishDraft,
+  onEditItem,
+  onDeleteItem,
+  showActions = false 
+}) {
   const [orderBy, setOrderBy] = useState('');
   const [orderDirection, setOrderDirection] = useState('asc');
   const [searchQuery, setSearchQuery] = useState('');
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [selectedItem, setSelectedItem] = useState(null);
   const navigate = useNavigate();
 
   // Fonction utilitaire pour récupérer le nom d'une résidence par son ID
@@ -43,8 +56,63 @@ export default function DataTable({ title, data = [], columns = [], onRowClick }
     }
   };
 
+  const handleActionsClick = (event, item) => {
+    event.stopPropagation(); // Empêcher le clic sur la ligne
+    setAnchorEl(event.currentTarget);
+    setSelectedItem(item);
+  };
+
+  const handleActionsClose = () => {
+    setAnchorEl(null);
+    setSelectedItem(null);
+  };
+
+  const handlePublishDraft = () => {
+    if (onPublishDraft && selectedItem) {
+      onPublishDraft(selectedItem);
+    }
+    handleActionsClose();
+  };
+
+  const handleEdit = () => {
+    if (onEditItem && selectedItem) {
+      onEditItem(selectedItem);
+    }
+    handleActionsClose();
+  };
+
+  const handleDelete = () => {
+    if (onDeleteItem && selectedItem) {
+      onDeleteItem(selectedItem);
+    }
+    handleActionsClose();
+  };
+
+  // Ajouter la colonne Actions si nécessaire
+  const effectiveColumns = useMemo(() => {
+    if (!showActions) return columns;
+    
+    return [
+      ...columns,
+      { id: 'actions', label: 'Actions', sortable: false, searchable: false }
+    ];
+  }, [columns, showActions]);
+
   const formatCellValue = (item, column) => {
     const value = item[column.id];
+    
+    // NOUVEAU : Actions pour les brouillons
+    if (column.id === 'actions') {
+      return (
+        <IconButton
+          size="small"
+          onClick={(e) => handleActionsClick(e, item)}
+          sx={{ ml: 1 }}
+        >
+          <MoreVert />
+        </IconButton>
+      );
+    }
     
     if (!value) return '-';
 
@@ -302,7 +370,7 @@ export default function DataTable({ title, data = [], columns = [], onRowClick }
     if (!searchQuery) return data;
     
     return data.filter(item => {
-      return columns.some(col => {
+      return effectiveColumns.some(col => {
         if (col.searchable && item[col.id]) {
           const searchValue = item[col.id].toString().toLowerCase();
           return searchValue.includes(searchQuery.toLowerCase());
@@ -310,7 +378,7 @@ export default function DataTable({ title, data = [], columns = [], onRowClick }
         return false;
       });
     });
-  }, [data, columns, searchQuery]);
+  }, [data, effectiveColumns, searchQuery]);
 
   const sortedData = useMemo(() => {
     if (!orderBy) return filteredData;
@@ -329,7 +397,7 @@ export default function DataTable({ title, data = [], columns = [], onRowClick }
     <Paper sx={{ p: 2 }}>
       <Typography variant="h6" gutterBottom>{title}</Typography>
 
-      {columns.some(col => col.searchable) && (
+      {effectiveColumns.some(col => col.searchable) && (
         <TextField
           placeholder="Rechercher..."
           value={searchQuery}
@@ -345,7 +413,7 @@ export default function DataTable({ title, data = [], columns = [], onRowClick }
         <Table>
           <TableHead>
             <TableRow>
-              {columns.map(col => (
+              {effectiveColumns.map(col => (
                 <TableCell key={col.id}>
                   {col.sortable ? (
                     <TableSortLabel
@@ -373,7 +441,7 @@ export default function DataTable({ title, data = [], columns = [], onRowClick }
                   } : {}
                 }}
               >
-                {columns.map(col => (
+                {effectiveColumns.map(col => (
                   <TableCell key={col.id}>
                     {formatCellValue(item, col)}
                   </TableCell>
@@ -383,6 +451,32 @@ export default function DataTable({ title, data = [], columns = [], onRowClick }
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* Menu d'actions */}
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleActionsClose}
+      >
+        {selectedItem?.status === 'Brouillon' && onPublishDraft && (
+          <MenuItem onClick={handlePublishDraft}>
+            <Publish sx={{ mr: 1 }} />
+            Publier maintenant
+          </MenuItem>
+        )}
+        {onEditItem && (
+          <MenuItem onClick={handleEdit}>
+            <Edit sx={{ mr: 1 }} />
+            Modifier
+          </MenuItem>
+        )}
+        {onDeleteItem && (
+          <MenuItem onClick={handleDelete}>
+            <Delete sx={{ mr: 1 }} />
+            Supprimer
+          </MenuItem>
+        )}
+      </Menu>
     </Paper>
   );
 }

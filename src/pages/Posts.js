@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Button, Alert, Snackbar, Box, Card, CardContent } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import DataTable from '../components/DataTable';
@@ -87,8 +87,9 @@ const mockPosts = [
 export default function Posts() {
   const { ensureAuthenticated, authorizedResidences } = useAuth();
   const { currentResidenceId } = useResidence();
-  const { getPublications, addPublication } = usePublications();
+  const { getPublications, addPublication, publishDraft, updatePublication, deletePublication } = usePublications();
   const [openModal, setOpenModal] = useState(false);
+  const [editingPost, setEditingPost] = useState(null);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const navigate = useNavigate();
 
@@ -103,44 +104,116 @@ export default function Posts() {
   // Récupération des posts via le contexte (inclut déjà le filtrage par résidence)
   const posts = getPublications('posts', currentResidenceId);
 
-  const handleAddPost = async (newPost) => {
+  // NOUVEAU : Publier un brouillon
+  const handlePublishDraft = useCallback(async (post) => {
+    try {
+      ensureAuthenticated('publier un brouillon');
+      
+      await publishDraft('posts', post.id);
+      
+      setNotification({
+        open: true,
+        message: `Brouillon "${post.title}" publié avec succès !`,
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('❌ Erreur lors de la publication du brouillon:', error);
+      setNotification({
+        open: true,
+        message: error.message || 'Erreur lors de la publication du brouillon',
+        severity: 'error'
+      });
+    }
+  }, [ensureAuthenticated, publishDraft]);
+
+  // NOUVEAU : Modifier un post (réutilise le modal existant)
+  const handleEditPost = useCallback((post) => {
+    try {
+      ensureAuthenticated('modifier un post');
+      setEditingPost(post);
+      setOpenModal(true);
+    } catch (error) {
+      setNotification({
+        open: true,
+        message: 'Vous devez être connecté pour modifier un post',
+        severity: 'error'
+      });
+    }
+  }, [ensureAuthenticated]);
+
+  // NOUVEAU : Supprimer un post
+  const handleDeletePost = useCallback(async (post) => {
+    try {
+      ensureAuthenticated('supprimer un post');
+      
+      if (window.confirm(`Êtes-vous sûr de vouloir supprimer "${post.title}" ?`)) {
+        await deletePublication('posts', post.id);
+        
+        setNotification({
+          open: true,
+          message: `Post "${post.title}" supprimé avec succès !`,
+          severity: 'success'
+        });
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression:', error);
+      setNotification({
+        open: true,
+        message: error.message || 'Erreur lors de la suppression',
+        severity: 'error'
+      });
+    }
+  }, [ensureAuthenticated, deletePublication]);
+
+  // Gérer la soumission du formulaire (création OU mise à jour)
+  const handleSubmitPost = async (postData) => {
     try {
       // Vérifier l'authentification avant de procéder
-      ensureAuthenticated('créer un nouveau post');
+      ensureAuthenticated(editingPost ? 'modifier un post' : 'créer un nouveau post');
       
       // Validation de sécurité des résidences
-      if (!newPost.targetResidences || newPost.targetResidences.length === 0) {
+      if (!postData.targetResidences || postData.targetResidences.length === 0) {
         throw new Error('Aucune résidence sélectionnée pour la publication');
       }
 
       // Vérifier que l'utilisateur a accès à toutes les résidences sélectionnées
       const authorizedIds = authorizedResidences?.map(r => r.residenceId) || [];
-      const unauthorizedResidences = newPost.targetResidences.filter(id => !authorizedIds.includes(id));
+      const unauthorizedResidences = postData.targetResidences.filter(id => !authorizedIds.includes(id));
       
       if (unauthorizedResidences.length > 0) {
         console.error('🚨 SÉCURITÉ: Tentative de publication dans des résidences non autorisées:', unauthorizedResidences);
         throw new Error('Vous n\'êtes pas autorisé à publier dans certaines résidences sélectionnées');
       }
       
-      // Utiliser le contexte pour la création - Experience utilisateur immédiate
-      await addPublication('posts', newPost);
+      if (editingPost) {
+        // Mise à jour d'un post existant
+        await updatePublication('posts', editingPost.id, postData);
+        setNotification({
+          open: true,
+          message: `Post "${postData.title}" mis à jour avec succès !`,
+          severity: 'success'
+        });
+      } else {
+        // Création d'un nouveau post (logique existante)
+        await addPublication('posts', postData);
+        const residenceCount = postData.targetResidences.length;
+        setNotification({
+          open: true,
+          message: `Post créé avec succès et publié dans ${residenceCount} résidence${residenceCount > 1 ? 's' : ''} !`,
+          severity: 'success'
+        });
+      }
       
-      // Fermer le modal et afficher une notification
       setOpenModal(false);
-      const residenceCount = newPost.targetResidences.length;
-      setNotification({
-        open: true,
-        message: `Post créé avec succès et publié dans ${residenceCount} résidence${residenceCount > 1 ? 's' : ''} !`,
-        severity: 'success'
-      });
+      setEditingPost(null);
       
     } catch (error) {
-      console.error('❌ Erreur lors de la création du post:', error);
+      console.error('❌ Erreur lors de la soumission:', error);
       
-      let errorMessage = 'Erreur lors de la création du post';
+      let errorMessage = editingPost ? 'Erreur lors de la mise à jour du post' : 'Erreur lors de la création du post';
       
       if (error.code === 'UNAUTHENTICATED') {
-        errorMessage = 'Vous devez être connecté pour créer un post';
+        errorMessage = 'Vous devez être connecté pour effectuer cette action';
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -168,6 +241,7 @@ export default function Posts() {
         return;
       }
       
+      setEditingPost(null); // S'assurer qu'on est en mode création
       setOpenModal(true);
     } catch (error) {
       console.error('❌ Utilisateur non authentifié:', error);
@@ -177,6 +251,11 @@ export default function Posts() {
         severity: 'error'
       });
     }
+  };
+
+  const handleCloseModal = () => {
+    setOpenModal(false);
+    setEditingPost(null);
   };
 
   const handleRowClick = (post, navigate) => {
@@ -222,6 +301,10 @@ export default function Posts() {
             data={posts}
             columns={columns}
             onRowClick={handleRowClick}
+            showActions={true} // NOUVEAU : Activer les actions
+            onPublishDraft={handlePublishDraft} // NOUVEAU
+            onEditItem={handleEditPost} // NOUVEAU
+            onDeleteItem={handleDeletePost} // NOUVEAU
             searchPlaceholder="Rechercher dans les posts..."
             emptyStateMessage="Aucun post trouvé pour cette résidence"
             sx={{
@@ -246,8 +329,8 @@ export default function Posts() {
 
       <ModalPublicationForm
         open={openModal}
-        handleClose={() => setOpenModal(false)}
-        onSubmit={handleAddPost}
+        handleClose={handleCloseModal}
+        onSubmit={handleSubmitPost}
         entityName="Post"
         fields={[
           { 
@@ -278,13 +361,22 @@ export default function Posts() {
             required: false,
             options: [
               { value: 'info', label: 'Information' },
+              { value: 'event', label: 'Événement' },
+              { value: 'urgent', label: 'Urgent' },
               { value: 'maintenance', label: 'Maintenance' },
-              { value: 'community', label: 'Vie communautaire' },
-              { value: 'security', label: 'Sécurité' },
-              { value: 'other', label: 'Autre' }
+              { value: 'community', label: 'Vie communautaire' }
             ]
+          },
+          { 
+            name: 'publicationDate', 
+            label: 'Date de publication', 
+            type: 'datetime', 
+            required: true,
+            helperText: 'Date et heure de publication du post'
           }
         ]}
+        initialValues={editingPost || {}}
+        isEditing={!!editingPost}
       />
 
       {/* Notifications */}

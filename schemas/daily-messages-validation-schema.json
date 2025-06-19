@@ -1,93 +1,84 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "Schéma de validation pour les Messages du Jour",
-    "type": "object", 
-    "description": "Structure de validation pour les publications de type Message du Jour",
-    "required": [
-      "message",
-      "priority",
-      "targetResidences",
-      "status", 
-      "publicationDate",
-      "createdAt",
-      "createdBy"
-    ],
-    "properties": {
-      "id": {
-        "type": "integer",
-        "minimum": 1
-      },
-      "message": {
-        "type": "string",
-        "description": "Contenu du message (HTML WYSIWYG)",
-        "minLength": 10,
-        "maxLength": 2000,
-        "contentType": "text/html"
-      },
-      "priority": {
-        "type": "string",
-        "enum": ["low", "normal", "high", "urgent"],
-        "enumLabels": ["Faible", "Normale", "Élevée", "Urgente"],
-        "default": "normal"
-      },
-      "targetResidences": {
-        "type": "array",
-        "minItems": 1,
-        "items": {
-          "type": "string",
-          "format": "uuid"
-        }
-      },
-      "targetResidenceNames": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
-      },
-      "status": {
-        "type": "string",
-        "enum": ["Brouillon", "Publié", "Programmé", "Archivé"]
-      },
-      "publicationDate": {
-        "type": "string",
-        "format": "date-time"
-      },
-      "publishLater": {
-        "type": "boolean",
-        "default": false
-      },
-      "createdAt": {
-        "type": "string",
-        "format": "date-time"
-      },
-      "createdBy": {
-        "type": "string"
-      },
-      "updatedAt": {
-        "type": "string",
-        "format": "date-time"
-      },
-      "displaySettings": {
-        "type": "object",
-        "description": "Paramètres d'affichage spécifiques",
-        "properties": {
-          "showOnDashboard": {
-            "type": "boolean",
-            "default": true
-          },
-          "autoArchiveAfterDays": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 30,
-            "default": 7
-          }
-        }
-      }
+  "entity": "DailyMessages",
+  "description": "Publications de type message quotidien",
+  "fields": {
+    "id": {
+      "type": "integer",
+      "required": true,
+      "auto_generated": true,
+      "description": "Identifiant unique"
     },
-    "validationRules": {
-      "dailyMessage": {
-        "priority": "Les messages 'urgent' doivent être approuvés par un gestionnaire",
-        "content": "Doit respecter la charte de communication de la résidence"
-      }
+    "message": {
+      "type": "text",
+      "format": "html",
+      "required": true,
+      "max_length": 2000,
+      "description": "Contenu du message (HTML WYSIWYG)"
+    },
+    "priority": {
+      "type": "enum",
+      "required": true,
+      "values": ["low", "normal", "high", "urgent"],
+      "default": "normal",
+      "description": "Priorité du message"
+    },
+    "targetResidences": {
+      "type": "array",
+      "item_type": "uuid",
+      "required": true,
+      "min_items": 1,
+      "description": "Liste des résidences cibles"
+    },
+    "targetResidenceNames": {
+      "type": "array",
+      "item_type": "string",
+      "required": false,
+      "description": "Noms des résidences (affichage)"
+    },
+    "status": {
+      "type": "enum",
+      "required": true,
+      "values": ["Brouillon", "Publié", "Programmé", "Archivé"],
+      "description": "Statut de publication"
+    },
+    "publicationDate": {
+      "type": "datetime",
+      "required": true,
+      "format": "ISO8601",
+      "description": "Date de publication"
+    },
+    "publishLater": {
+      "type": "boolean",
+      "required": false,
+      "default": false,
+      "description": "Publication programmée"
+    },
+    "createdAt": {
+      "type": "datetime",
+      "required": true,
+      "auto_generated": true,
+      "description": "Date de création"
+    },
+    "createdBy": {
+      "type": "string",
+      "required": true,
+      "description": "ID utilisateur créateur"
+    },
+    "updatedAt": {
+      "type": "datetime",
+      "required": false,
+      "nullable": true,
+      "description": "Dernière modification"
+    },
+    "displaySettings": {
+      "type": "json",
+      "required": false,
+      "nullable": true,
+      "structure": {
+        "showOnDashboard": "boolean",
+        "autoArchiveAfterDays": "integer"
+      },
+      "description": "Paramètres d'affichage spécifiques"
     }
   }
+}

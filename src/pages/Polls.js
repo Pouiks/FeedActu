@@ -1,90 +1,20 @@
 import React, { useState } from 'react';
-import { Button, Alert, Snackbar } from '@mui/material';
+import { Alert, Snackbar } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
 import PageHeader from '../components/PageHeader';
 import { useAuth } from '../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
 import { useResidence } from '../context/ResidenceContext';
 import { usePublications } from '../context/PublicationsContext';
 
-const mockPolls = [
-  { 
-    id: 1, 
-    question: '<p>Préférez-vous organiser la <strong>fête des voisins</strong> en mai ou en juin ?</p>', 
-    imageUrl: 'https://via.placeholder.com/400x200/4CAF50/white?text=Fête+des+Voisins',
-    answers: ['En mai (plus frais)', 'En juin (plus d\'activités possibles)', 'Les deux mois me conviennent', 'Je ne participe pas'],
-    allowMultipleAnswers: false,
-    hasDeadline: true,
-    deadlineDate: '2025-03-15T23:59:00',
-    publicationDate: '2024-11-15T10:00:00', 
-    status: 'Publié', 
-    residence_id: '1' 
-  },
-  { 
-    id: 2, 
-    question: '<p>Souhaitez-vous l\'installation de <em>bornes de recharge</em> pour véhicules électriques dans le parking ?</p>', 
-    answers: ['Oui, absolument', 'Oui, mais seulement si peu coûteux', 'Non, pas prioritaire', 'Je n\'ai pas d\'avis'],
-    allowMultipleAnswers: false,
-    hasDeadline: false,
-    publicationDate: '2024-11-20T14:30:00', 
-    status: 'Publié', 
-    residence_id: '1' 
-  },
-  { 
-    id: 3, 
-    question: '<p><strong>Quelle activité souhaiteriez-vous voir organisée ?</strong><br>Nous préparons le programme des activités 2025 ! 🎯</p>', 
-    imageUrl: 'https://via.placeholder.com/400x200/2196F3/white?text=Activités+2025',
-    answers: ['Cours de sport collectif', 'Ateliers bricolage/jardinage', 'Soirées culturelles', 'Activités enfants', 'Repas partagés'],
-    allowMultipleAnswers: true,
-    hasDeadline: true,
-    deadlineDate: '2025-01-31T23:59:00',
-    publicationDate: '2024-12-01T09:00:00', 
-    status: 'Programmé', 
-    residence_id: '1' 
-  },
-  { 
-    id: 4, 
-    question: '<p>Êtes-vous satisfait de la <em>gestion des espaces verts</em> ?</p>', 
-    answers: ['Très satisfait', 'Plutôt satisfait', 'Plutôt mécontent', 'Très mécontent'],
-    allowMultipleAnswers: false,
-    hasDeadline: false,
-    publicationDate: '2024-11-15T16:45:00', 
-    status: 'Brouillon', 
-    residence_id: '1' 
-  },
-  { 
-    id: 5, 
-    question: '<p>Accepteriez-vous une <strong>légère augmentation</strong> des charges pour améliorer la sécurité (vidéophone, éclairage) ?</p>', 
-    answers: ['Oui, tout à fait', 'Oui, selon le montant', 'Non, les charges sont déjà trop élevées'],
-    allowMultipleAnswers: false,
-    hasDeadline: true,
-    deadlineDate: '2024-12-31T23:59:00',
-    publicationDate: '2024-10-20T11:30:00', 
-    status: 'Archivé', 
-    residence_id: '1' 
-  },
-  { 
-    id: 6, 
-    question: '<p>Quel est votre <em>mode de transport principal</em> pour aller au travail ?</p>', 
-    imageUrl: 'https://via.placeholder.com/400x200/9C27B0/white?text=Transport',
-    answers: ['Voiture', 'Transports en commun', 'Vélo', 'À pied', 'Télétravail', 'Autre'],
-    allowMultipleAnswers: false,
-    hasDeadline: false,
-    publicationDate: '2024-11-25T08:15:00', 
-    status: 'Brouillon', 
-    residence_id: '1' 
-  }
-];
-
 export default function Polls() {
   const { ensureAuthenticated, authorizedResidences } = useAuth();
-  const { currentResidenceId, currentResidenceName } = useResidence();
-  const { getPublications, addPublication } = usePublications();
+  const { currentResidenceName } = useResidence();
+  const { getPublications, addPublication, publishDraft, updatePublication, deletePublication } = usePublications();
   const [openModal, setOpenModal] = useState(false);
+  const [editingPoll, setEditingPoll] = useState(null); // NOUVEAU : Pour l'édition
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
-  const navigate = useNavigate();
 
   const columns = [
     { id: 'question', label: 'Question', sortable: true, searchable: true },
@@ -194,26 +124,43 @@ export default function Polls() {
         data={polls} 
         columns={columns} 
         onRowClick={handleRowClick}
+        showActions={true}
+        onPublishDraft={(poll) => publishDraft('polls', poll.id)}
+        onEditItem={(poll) => { setEditingPoll(poll); setOpenModal(true); }}
+        onDeleteItem={(poll) => { if(window.confirm(`Supprimer "${poll.question}" ?`)) deletePublication('polls', poll.id); }}
       />
 
       <ModalPublicationForm
         open={openModal}
-        handleClose={() => setOpenModal(false)}
-        onSubmit={handleAddPoll}
+        handleClose={() => { setOpenModal(false); setEditingPoll(null); }}
+        onSubmit={editingPoll ? 
+          (data) => updatePublication('polls', editingPoll.id, data) : 
+          handleAddPoll
+        }
         entityName="Sondage"
         fields={[
-          { name: 'question', label: 'Question du sondage', type: 'text', required: true },
+          { name: 'question', label: 'Question du sondage', type: 'wysiwyg', required: true },
           { name: 'pollAnswers', label: 'Réponses possibles', type: 'pollAnswers', required: true },
-          { name: 'allowMultiple', label: 'Autoriser plusieurs réponses', type: 'checkbox', required: false },
-          { name: 'deadline', label: 'Date limite de réponse', type: 'datetime', required: false },
+          { name: 'allowMultipleAnswers', label: 'Autoriser plusieurs réponses', type: 'checkbox' },
+          { name: 'hasDeadline', label: 'Définir une date limite', type: 'checkbox' },
+          { name: 'deadlineDate', label: 'Date limite de vote', type: 'datetime', showIf: 'hasDeadline' },
           { 
             name: 'imageUrl', 
             label: "Image du sondage", 
             type: 'image', 
             required: false,
             helperText: 'Chargez un fichier ou collez une URL d\'image'
+          },
+          { 
+            name: 'publicationDate', 
+            label: 'Date de publication', 
+            type: 'datetime', 
+            required: true,
+            helperText: 'Date et heure de publication du sondage'
           }
         ]}
+        initialValues={editingPoll || {}}
+        isEditing={!!editingPoll}
       />
 
       <Snackbar

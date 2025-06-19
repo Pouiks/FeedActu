@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Paper, Typography, Box, Chip, TextField, Button, Stack, IconButton } from '@mui/material';
+import { Paper, Typography, Box, Chip, TextField, Button, Stack, IconButton, FormControl, InputLabel, Select, MenuItem, Checkbox, FormControlLabel } from '@mui/material';
 import { Add, Delete } from '@mui/icons-material';
+import { DateTimePicker } from '@mui/x-date-pickers';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { fr } from 'date-fns/locale';
 import BackButton from '../components/BackButton';
 import RichTextEditor from '../components/RichTextEditor';
 
@@ -70,7 +74,11 @@ export default function PollDetail() {
       setPoll(foundPoll);
       setEditedPoll({ 
         question: foundPoll.question || '',
-        answers: [...(foundPoll.answers || [''])]
+        answers: [...(foundPoll.answers || [''])],
+        allowMultipleAnswers: foundPoll.allowMultipleAnswers || false,
+        hasDeadline: foundPoll.hasDeadline || false,
+        deadlineDate: foundPoll.deadlineDate || new Date().toISOString(),
+        publicationDate: foundPoll.publicationDate || new Date().toISOString()
       });
     }
   }, [id]);
@@ -81,7 +89,11 @@ export default function PollDetail() {
     
     const hasChanges = 
       editedPoll.question !== poll.question ||
-      JSON.stringify(editedPoll.answers) !== JSON.stringify(poll.answers);
+      JSON.stringify(editedPoll.answers) !== JSON.stringify(poll.answers) ||
+      editedPoll.allowMultipleAnswers !== poll.allowMultipleAnswers ||
+      editedPoll.hasDeadline !== poll.hasDeadline ||
+      editedPoll.deadlineDate !== poll.deadlineDate ||
+      editedPoll.publicationDate !== poll.publicationDate;
     
     setIsDirty(hasChanges);
   }, [editedPoll, poll]);
@@ -205,15 +217,68 @@ export default function PollDetail() {
                 </IconButton>
               </Box>
             ))}
-            <Button
-              startIcon={<Add />}
-              onClick={addAnswer}
-              variant="outlined"
-              sx={{ mt: 1 }}
-            >
+            <Button variant="outlined" size="small" onClick={addAnswer}>
               Ajouter une réponse
             </Button>
           </Box>
+
+          {/* Option réponses multiples */}
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={editedPoll.allowMultipleAnswers || false}
+                onChange={(e) => handleFieldChange('allowMultipleAnswers', e.target.checked)}
+              />
+            }
+            label="Autoriser les réponses multiples"
+          />
+
+          {/* Option deadline */}
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={editedPoll.hasDeadline || false}
+                onChange={(e) => handleFieldChange('hasDeadline', e.target.checked)}
+              />
+            }
+            label="Définir une date limite de réponse"
+          />
+
+          {/* Date limite conditionnelle */}
+          {editedPoll.hasDeadline && (
+            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={fr}>
+              <DateTimePicker
+                label="Date limite de réponse"
+                value={editedPoll.deadlineDate ? new Date(editedPoll.deadlineDate) : null}
+                onChange={(newValue) => handleFieldChange('deadlineDate', newValue?.toISOString())}
+                slotProps={{ 
+                  textField: { 
+                    fullWidth: true,
+                    helperText: "Date et heure limite pour répondre au sondage"
+                  }
+                }}
+                ampm={false}
+                disablePast
+              />
+            </LocalizationProvider>
+          )}
+
+          {/* Date de publication modifiable */}
+          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={fr}>
+            <DateTimePicker
+              label="Date de publication"
+              value={editedPoll.publicationDate ? new Date(editedPoll.publicationDate) : null}
+              onChange={(newValue) => handleFieldChange('publicationDate', newValue?.toISOString())}
+              slotProps={{ 
+                textField: { 
+                  fullWidth: true,
+                  required: true,
+                  helperText: "Date et heure de publication du sondage"
+                }
+              }}
+              ampm={false}
+            />
+          </LocalizationProvider>
 
           {/* Bouton d'enregistrement */}
           {isDirty && (

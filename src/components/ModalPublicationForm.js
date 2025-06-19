@@ -35,7 +35,8 @@ export default function ModalPublicationForm({
   onSubmit = () => {}, 
   entityName = '', 
   fields = [], 
-  initialValues = {} 
+  initialValues = {},
+  isEditing = false // NOUVEAU : Mode édition
 }) {
   const { authorizedResidences, user } = useAuth();
   const { executeWithErrorHandling, getUserFriendlyMessage } = useErrorHandler();
@@ -50,6 +51,11 @@ export default function ModalPublicationForm({
   const isFirstOpen = useRef(true);
   const [startPickerOpen, setStartPickerOpen] = useState(false);
   const [endPickerOpen, setEndPickerOpen] = useState(false);
+
+  // Modifier le titre du modal selon le mode
+  const modalTitle = isEditing 
+    ? `Modifier ${entityName.toLowerCase()}`
+    : `Créer un nouveau ${entityName.toLowerCase()}`;
 
   // Validation de sécurité pour les résidences
   const validateResidencesSecurity = (residenceIds) => {
@@ -118,15 +124,42 @@ export default function ModalPublicationForm({
               initialData[`${field.name}Start`] = now;
               initialData[`${field.name}End`] = endTime;
             }
+            
+            // Pour les champs datetime requis sans valeur initiale en mode création
+            if (field.type === 'datetime' && field.required && !isEditing && !initialData[field.name]) {
+              initialData[field.name] = new Date();
+            }
           });
           
           setFormData(initialData);
           
-          // Auto-sélection de la résidence unique si applicable
-          if (authorizedResidences?.length === 1) {
-            setSelectedResidences([authorizedResidences[0].residenceId]);
+          // NOUVEAU : Pour l'édition, pré-remplir les résidences et autres champs
+          if (isEditing && initialValues) {
+            if (initialValues.targetResidences) {
+              setSelectedResidences(initialValues.targetResidences);
+            }
+            if (initialValues.publishLater) {
+              setPublishLater(initialValues.publishLater);
+            }
+            if (initialValues.publishDateTime) {
+              setPublishDateTime(new Date(initialValues.publishDateTime));
+            }
+            if (initialValues.answers) {
+              setPollAnswers(initialValues.answers);
+            }
+            // Assurer que tous les champs sont pré-remplis avec les valeurs existantes
+            Object.keys(initialValues).forEach(key => {
+              if (!initialData.hasOwnProperty(key)) {
+                initialData[key] = initialValues[key];
+              }
+            });
           } else {
-            setSelectedResidences([]);
+            // Auto-sélection de la résidence unique si applicable (mode création uniquement)
+            if (authorizedResidences?.length === 1) {
+              setSelectedResidences([authorizedResidences[0].residenceId]);
+            } else {
+              setSelectedResidences([]);
+            }
           }
         }
         
@@ -203,6 +236,11 @@ export default function ModalPublicationForm({
     fields.forEach(field => {
       // Skip pollAnswers car ils ont leur propre validation spéciale
       if (field.type === 'pollAnswers') {
+        return;
+      }
+      
+      // Vérifier si le champ doit être affiché avant de le valider
+      if (!shouldShowField(field)) {
         return;
       }
       
@@ -416,8 +454,69 @@ export default function ModalPublicationForm({
     setPreviewOpen(true);
   };
 
+  // Modifier les boutons selon le mode
+  const renderActionButtons = () => {
+    if (isEditing) {
+      return (
+        <Stack direction="row" spacing={2} justifyContent="flex-end">
+          <Button variant="outlined" onClick={handleClose}>
+            Annuler
+          </Button>
+          <Button 
+            variant="outlined" 
+            onClick={() => handleSave('Brouillon')}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? 'Sauvegarde...' : 'Sauvegarder comme Brouillon'}
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => handleSave('Publié')}
+            disabled={publishLater && !isDateValid() || isSubmitting}
+          >
+            {isSubmitting ? 'Publication en cours...' : 'Publier'}
+          </Button>
+        </Stack>
+      );
+    }
+
+    // Boutons existants pour la création
+    return (
+      <Stack direction="row" spacing={2} justifyContent="flex-end">
+        <Button 
+          variant="text" 
+          onClick={handlePreview}
+          sx={{ mr: 'auto' }}
+        >
+          📱 Aperçu mobile
+        </Button>
+        <Button 
+          variant="outlined" 
+          onClick={() => handleSave('Brouillon')}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? 'Sauvegarde...' : 'Enregistrer comme Brouillon'}
+        </Button>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={() => handleSave('Publié')}
+          disabled={publishLater && !isDateValid() || isSubmitting}
+        >
+          {isSubmitting ? 'Publication en cours...' : `Publier${selectedResidences.length > 1 ? ` dans ${selectedResidences.length} résidences` : ''}`}
+        </Button>
+      </Stack>
+    );
+  };
+
   // Fonction pour vérifier si un champ doit être affiché (logique conditionnelle)
   const shouldShowField = (field) => {
+    // En mode édition, toujours afficher les champs essentiels
+    if (isEditing && ['category', 'publicationDate', 'title', 'message'].includes(field.name)) {
+      return true;
+    }
+    
     // Vérifier les deux types de conditions possibles
     const conditionField = field.conditionalOn || field.showIf;
     if (!conditionField) return true;
@@ -691,13 +790,13 @@ export default function ModalPublicationForm({
           <LocalizationProvider key={field.name} dateAdapter={AdapterDateFns} adapterLocale={fr}>
             <DateTimePicker
               label={field.label}
-              value={formData[field.name] ? new Date(formData[field.name]) : new Date()}
+              value={formData[field.name] ? new Date(formData[field.name]) : null}
               onChange={(newValue) => handleChange(field.name, newValue)}
               slotProps={{ 
                 textField: { 
                   required: field.required,
                   error: !!errors[field.name],
-                  helperText: errors[field.name],
+                  helperText: errors[field.name] || field.helperText,
                   fullWidth: true
                 }
               }}
@@ -873,7 +972,7 @@ export default function ModalPublicationForm({
       >
         <Box sx={style}>
           <Typography id="modal-publication-title" variant="h6" component="h2" gutterBottom>
-            Nouveau {entityName}
+            {modalTitle}
           </Typography>
 
           {Object.keys(errors).length > 0 && (
@@ -938,30 +1037,7 @@ export default function ModalPublicationForm({
               <Typography color="error">La date et l'heure doivent être postérieures à maintenant.</Typography>
             )}
 
-            <Stack direction="row" spacing={2} justifyContent="flex-end">
-              <Button 
-                variant="text" 
-                onClick={handlePreview}
-                sx={{ mr: 'auto' }}
-              >
-                📱 Aperçu mobile
-              </Button>
-              <Button 
-                variant="outlined" 
-                onClick={() => handleSave('Brouillon')}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? 'Sauvegarde...' : 'Enregistrer comme Brouillon'}
-              </Button>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={() => handleSave('Publié')}
-                disabled={publishLater && !isDateValid() || isSubmitting}
-              >
-                {isSubmitting ? 'Publication en cours...' : `Publier${selectedResidences.length > 1 ? ` dans ${selectedResidences.length} résidences` : ''}`}
-              </Button>
-            </Stack>
+            {renderActionButtons()}
           </Stack>
         </Box>
       </Modal>

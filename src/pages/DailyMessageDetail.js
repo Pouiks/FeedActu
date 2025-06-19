@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Paper, Typography, Box, Chip, Button, Stack } from '@mui/material';
+import { Paper, Typography, Box, Chip, Button, Stack, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { DateTimePicker } from '@mui/x-date-pickers';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { fr } from 'date-fns/locale';
 import BackButton from '../components/BackButton';
 import RichTextEditor from '../components/RichTextEditor';
 
@@ -76,7 +80,9 @@ export default function DailyMessageDetail() {
     if (foundMessage) {
       setMessage(foundMessage);
       setEditedMessage({ 
-        message: foundMessage.message || ''
+        message: foundMessage.message || '',
+        priority: foundMessage.priority || '',
+        publicationDate: foundMessage.publicationDate || new Date().toISOString()
       });
     }
   }, [id]);
@@ -85,7 +91,11 @@ export default function DailyMessageDetail() {
   useEffect(() => {
     if (!message) return;
     
-    const hasChanges = editedMessage.message !== message.message;
+    const hasChanges = 
+      editedMessage.message !== message.message ||
+      editedMessage.priority !== message.priority ||
+      editedMessage.publicationDate !== message.publicationDate;
+      
     setIsDirty(hasChanges);
   }, [editedMessage, message]);
 
@@ -152,6 +162,38 @@ export default function DailyMessageDetail() {
         </Typography>
 
         <Stack spacing={3}>
+          {/* Priorité du message */}
+          <FormControl fullWidth>
+            <InputLabel>Priorité</InputLabel>
+            <Select
+              value={editedMessage.priority}
+              onChange={(e) => handleFieldChange('priority', e.target.value)}
+              label="Priorité"
+            >
+              <MenuItem value="low">Basse</MenuItem>
+              <MenuItem value="normal">Normale</MenuItem>
+              <MenuItem value="high">Élevée</MenuItem>
+              <MenuItem value="urgent">Urgente</MenuItem>
+            </Select>
+          </FormControl>
+
+          {/* Date de publication modifiable */}
+          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={fr}>
+            <DateTimePicker
+              label="Date de publication"
+              value={editedMessage.publicationDate ? new Date(editedMessage.publicationDate) : null}
+              onChange={(newValue) => handleFieldChange('publicationDate', newValue?.toISOString())}
+              slotProps={{ 
+                textField: { 
+                  fullWidth: true,
+                  required: true,
+                  helperText: "Date et heure de publication du message"
+                }
+              }}
+              ampm={false}
+            />
+          </LocalizationProvider>
+
           {/* Message */}
           <Box>
             <Typography variant="subtitle1" gutterBottom>Message</Typography>

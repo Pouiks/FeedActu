@@ -1,103 +1,87 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "Schéma de validation pour les Posts",
-    "type": "object",
-    "description": "Structure de validation pour les publications de type Post",
-    "required": [
-      "title",
-      "message", 
-      "targetResidences",
-      "status",
-      "publicationDate",
-      "createdAt",
-      "createdBy"
-    ],
-    "properties": {
-      "id": {
-        "type": "integer",
-        "description": "Identifiant unique auto-généré",
-        "minimum": 1
-      },
-      "title": {
-        "type": "string",
-        "description": "Titre du post",
-        "minLength": 3,
-        "maxLength": 200,
-        "example": "Entrez le titre du post..."
-      },
-      "message": {
-        "type": "string",
-        "description": "Contenu HTML du message (WYSIWYG)",
-        "minLength": 10,
-        "maxLength": 5000,
-        "contentType": "text/html"
-      },
-      "imageUrl": {
-        "type": "string",
-        "format": "uri",
-        "description": "URL complète vers une image (optionnel)",
-        "example": "https://exemple.com/image.jpg",
-        "pattern": "^https?://.+\\.(jpg|jpeg|png|gif|webp)$"
-      },
-      "category": {
-        "type": "string",
-        "description": "Catégorie du post",
-        "enum": ["info", "event", "urgent"],
-        "enumLabels": ["Information", "Événement", "Urgent"],
-        "default": "info"
-      },
-      "targetResidences": {
-        "type": "array",
-        "description": "Liste des GUIDs des résidences cibles",
-        "minItems": 1,
-        "items": {
-          "type": "string",
-          "format": "uuid"
-        }
-      },
-      "targetResidenceNames": {
-        "type": "array",
-        "description": "Noms des résidences cibles (affichage)",
-        "items": {
-          "type": "string"
-        }
-      },
-      "status": {
-        "type": "string",
-        "enum": ["Brouillon", "Publié", "Programmé", "Archivé"],
-        "description": "Statut de publication"
-      },
-      "publicationDate": {
-        "type": "string",
-        "format": "date-time",
-        "description": "Date et heure de publication (ISO 8601)"
-      },
-      "publishLater": {
-        "type": "boolean",
-        "description": "Publier plus tard",
-        "default": false
-      },
-      "createdAt": {
-        "type": "string",
-        "format": "date-time"
-      },
-      "createdBy": {
-        "type": "string",
-        "description": "ID de l'utilisateur créateur"
-      },
-      "updatedAt": {
-        "type": "string",
-        "format": "date-time"
-      }
+  "entity": "Posts",
+  "description": "Publications de type article/annonce",
+  "fields": {
+    "id": {
+      "type": "integer",
+      "required": true,
+      "auto_generated": true,
+      "description": "Identifiant unique"
     },
-    "validationRules": {
-      "security": {
-        "targetResidences": "Doit contenir uniquement des résidences autorisées pour l'utilisateur",
-        "createdBy": "Doit correspondre à l'utilisateur authentifié"
-      },
-      "business": {
-        "publicationDate": "Si publishLater=true, doit être dans le futur",
-        "status": "Les transitions de statut doivent être validées"
-      }
+    "title": {
+      "type": "string",
+      "required": true,
+      "max_length": 200,
+      "description": "Titre du post"
+    },
+    "message": {
+      "type": "text",
+      "format": "html/text",
+      "required": true,
+      "max_length": 5000,
+      "description": "Contenu HTML du message (WYSIWYG)"
+    },
+    "imageUrl": {
+      "type": "string",
+      "required": false,
+      "nullable": true,
+      "format": "url",
+      "description": "URL de l'image (optionnel)"
+    },
+    "category": {
+      "type": "enum",
+      "required": true,
+      "values": ["info", "event", "urgent"],
+      "default": "info",
+      "description": "Catégorie du post"
+    },
+    "targetResidences": {
+      "type": "array",
+      "item_type": "uuid",
+      "required": true,
+      "min_items": 1,
+      "description": "Liste des résidences cibles"
+    },
+    "targetResidenceNames": {
+      "type": "array",
+      "item_type": "string",
+      "required": false,
+      "description": "Noms des résidences (affichage)"
+    },
+    "status": {
+      "type": "enum",
+      "required": true,
+      "values": ["Brouillon", "Publié", "Programmé", "Archivé"],
+      "description": "Statut de publication"
+    },
+    "publicationDate": {
+      "type": "datetime",
+      "required": true,
+      "format": "ISO8601",
+      "description": "Date de publication"
+    },
+    "publishLater": {
+      "type": "boolean",
+      "required": false,
+      "default": false,
+      "description": "Publication programmée"
+    },
+    "createdAt": {
+      "type": "datetime",
+      "required": true,
+      "auto_generated": true,
+      "description": "Date de création"
+    },
+    "createdBy": {
+      "type": "string",
+      "required": true,
+      "description": "ID utilisateur créateur"
+    },
+    "updatedAt": {
+      "type": "datetime",
+      "required": false,
+      "nullable": true,
+      "description": "Dernière modification"
     }
   }
+}

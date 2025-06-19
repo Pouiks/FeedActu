@@ -1,150 +1,140 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "Schéma de validation pour les Événements",
-    "type": "object",
-    "description": "Structure de validation pour les publications de type Événement",
-    "required": [
-      "title",
-      "description",
-      "eventDate",
-      "startTime", 
-      "endTime",
-      "targetResidences",
-      "status",
-      "publicationDate",
-      "createdAt",
-      "createdBy"
-    ],
-    "properties": {
-      "id": {
-        "type": "integer",
-        "minimum": 1
-      },
-      "title": {
-        "type": "string",
-        "description": "Nom de l'événement",
-        "minLength": 3,
-        "maxLength": 200,
-        "example": "Assemblée générale, Fête des voisins..."
-      },
-      "description": {
-        "type": "string",
-        "description": "Description HTML de l'événement (WYSIWYG)",
-        "minLength": 10,
-        "maxLength": 5000,
-        "contentType": "text/html"
-      },
-      "eventDate": {
-        "type": "string",
-        "format": "date",
-        "description": "Date de l'événement (YYYY-MM-DD)",
-        "validation": "Ne peut pas être dans le passé lors de la création"
-      },
-      "startTime": {
-        "type": "string",
-        "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
-        "description": "Heure de début (HH:mm format 24h)",
-        "example": "19:00"
-      },
-      "endTime": {
-        "type": "string", 
-        "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
-        "description": "Heure de fin (HH:mm format 24h)",
-        "example": "20:00",
-        "validation": "Doit être postérieure à startTime"
-      },
-      "location": {
-        "type": "string",
-        "description": "Lieu de l'événement",
-        "maxLength": 200,
-        "example": "Salle commune, Jardin, Hall d'entrée..."
-      },
-      "maxParticipants": {
-        "type": "integer",
-        "description": "Nombre maximum de participants",
-        "minimum": 1,
-        "maximum": 1000,
-        "example": 20
-      },
-      "hasParticipantLimit": {
-        "type": "boolean", 
-        "description": "Limiter le nombre de participants",
-        "default": false
-      },
-      "document": {
-        "type": "string",
-        "description": "Nom du fichier PDF joint",
-        "pattern": ".*\\.pdf$",
-        "example": "ordre-du-jour-ag-2025.pdf"
-      },
-      "recurrence": {
-        "type": "string",
-        "enum": ["none", "daily", "weekly", "monthly"],
-        "enumLabels": ["Événement unique", "Répéter tous les X jours", "Répéter chaque semaine", "Répéter chaque mois"],
-        "default": "none"
-      },
-      "recurrenceInterval": {
-        "type": "integer",
-        "description": "Intervalle de récurrence (en jours)",
-        "minimum": 1,
-        "maximum": 365,
-        "conditionalRequired": ["recurrence != 'none'"]
-      },
-      "recurrenceEnd": {
-        "type": "string",
-        "format": "date",
-        "description": "Date de fin de récurrence",
-        "conditionalRequired": ["recurrence != 'none'"],
-        "validation": "Doit être postérieure à eventDate"
-      },
-      "targetResidences": {
-        "type": "array",
-        "minItems": 1,
-        "items": {
-          "type": "string",
-          "format": "uuid"
-        }
-      },
-      "targetResidenceNames": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
-      },
-      "status": {
-        "type": "string",
-        "enum": ["Brouillon", "Publié", "Programmé", "Archivé"]
-      },
-      "publicationDate": {
-        "type": "string",
-        "format": "date-time"
-      },
-      "publishLater": {
-        "type": "boolean",
-        "default": false
-      },
-      "createdAt": {
-        "type": "string",
-        "format": "date-time"
-      },
-      "createdBy": {
-        "type": "string"
-      },
-      "updatedAt": {
-        "type": "string",
-        "format": "date-time"
-      }
+  "entity": "Events",
+  "description": "Publications de type événement",
+  "fields": {
+    "id": {
+      "type": "integer",
+      "required": true,
+      "auto_generated": true,
+      "description": "Identifiant unique"
     },
-    "validationRules": {
-      "timeValidation": {
-        "endTime": "Doit être postérieure à startTime",
-        "eventDate": "Ne peut pas être dans le passé",
-        "recurrenceEnd": "Si récurrence, doit être postérieure à eventDate"
-      },
-      "conditionalFields": {
-        "maxParticipants": "Requis si hasParticipantLimit = true",
-        "recurrenceInterval": "Requis si recurrence != 'none'",
-        "recurrenceEnd": "Requis si recurrence != 'none'"
-      }
+    "title": {
+      "type": "string",
+      "required": true,
+      "max_length": 200,
+      "description": "Nom de l'événement"
+    },
+    "description": {
+      "type": "text",
+      "format": "html",
+      "required": true,
+      "max_length": 5000,
+      "description": "Description HTML de l'événement (WYSIWYG)"
+    },
+    "eventDate": {
+      "type": "date",
+      "required": true,
+      "format": "YYYY-MM-DD",
+      "description": "Date de l'événement"
+    },
+    "startTime": {
+      "type": "time",
+      "required": true,
+      "format": "HH:mm",
+      "description": "Heure de début (24h)"
+    },
+    "endTime": {
+      "type": "time",
+      "required": true,
+      "format": "HH:mm",
+      "description": "Heure de fin (24h)"
+    },
+    "location": {
+      "type": "string",
+      "required": false,
+      "nullable": true,
+      "max_length": 200,
+      "description": "Lieu de l'événement"
+    },
+    "maxParticipants": {
+      "type": "integer",
+      "required": false,
+      "nullable": true,
+      "min_value": 1,
+      "max_value": 1000,
+      "description": "Nombre max de participants"
+    },
+    "hasParticipantLimit": {
+      "type": "boolean",
+      "required": false,
+      "default": false,
+      "description": "Limiter le nombre de participants"
+    },
+    "document": {
+      "type": "string",
+      "required": false,
+      "nullable": true,
+      "description": "Nom du fichier PDF joint"
+    },
+    "recurrence": {
+      "type": "enum",
+      "required": false,
+      "values": ["none", "daily", "weekly", "monthly"],
+      "default": "none",
+      "description": "Type de récurrence"
+    },
+    "recurrenceInterval": {
+      "type": "integer",
+      "required": false,
+      "nullable": true,
+      "min_value": 1,
+      "max_value": 365,
+      "description": "Intervalle de récurrence (en jours)"
+    },
+    "recurrenceEnd": {
+      "type": "date",
+      "required": false,
+      "nullable": true,
+      "format": "YYYY-MM-DD",
+      "description": "Date de fin de récurrence"
+    },
+    "targetResidences": {
+      "type": "array",
+      "item_type": "uuid",
+      "required": true,
+      "min_items": 1,
+      "description": "Liste des résidences cibles"
+    },
+    "targetResidenceNames": {
+      "type": "array",
+      "item_type": "string",
+      "required": false,
+      "description": "Noms des résidences (affichage)"
+    },
+    "status": {
+      "type": "enum",
+      "required": true,
+      "values": ["Brouillon", "Publié", "Programmé", "Archivé"],
+      "description": "Statut de publication"
+    },
+    "publicationDate": {
+      "type": "datetime",
+      "required": true,
+      "format": "ISO8601",
+      "description": "Date de publication"
+    },
+    "publishLater": {
+      "type": "boolean",
+      "required": false,
+      "default": false,
+      "description": "Publication programmée"
+    },
+    "createdAt": {
+      "type": "datetime",
+      "required": true,
+      "auto_generated": true,
+      "description": "Date de création"
+    },
+    "createdBy": {
+      "type": "string",
+      "required": true,
+      "description": "ID utilisateur créateur"
+    },
+    "updatedAt": {
+      "type": "datetime",
+      "required": false,
+      "nullable": true,
+      "description": "Dernière modification"
     }
   }
+}

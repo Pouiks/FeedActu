@@ -175,6 +175,37 @@ export function PublicationsProvider({ children }) {
     }
   };
 
+  // NOUVELLE FONCTION : Publier un brouillon
+  const publishDraft = async (type, id) => {
+    try {
+      const publication = getPublicationById(type, id);
+      if (!publication) {
+        throw new Error('Publication introuvable');
+      }
+
+      if (publication.status !== 'Brouillon') {
+        throw new Error('Seuls les brouillons peuvent être publiés');
+      }
+
+      // Mise à jour immédiate du statut
+      const updates = {
+        status: 'Publié',
+        publicationDate: new Date().toISOString(),
+        publishLater: false,
+        publishDateTime: ''
+      };
+
+      await updatePublication(type, id, updates);
+      
+      console.log(`✅ Brouillon ${type} publié avec succès ! ID: ${id}`);
+      return true;
+      
+    } catch (error) {
+      console.error(`❌ Erreur lors de la publication du brouillon ${type}:`, error);
+      throw error;
+    }
+  };
+
   const deletePublication = async (type, id) => {
     // Suppression immédiate
     dispatch({
@@ -217,6 +248,7 @@ export function PublicationsProvider({ children }) {
     addPublication: createPublication, // Alias pour compatibilité
     updatePublication,
     deletePublication,
+    publishDraft, // NOUVEAU : Publier un brouillon
     getPublications,
     getPublicationById,
     // Statistiques pour les dashboards

@@ -1,130 +1,117 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "Schéma de validation pour les Sondages",
-    "type": "object",
-    "description": "Structure de validation pour les publications de type Sondage",
-    "required": [
-      "question",
-      "answers",
-      "targetResidences", 
-      "status",
-      "publicationDate",
-      "createdAt",
-      "createdBy"
-    ],
-    "properties": {
-      "id": {
-        "type": "integer",
-        "minimum": 1
-      },
-      "question": {
-        "type": "string",
-        "description": "Question du sondage (HTML WYSIWYG)",
-        "minLength": 10,
-        "maxLength": 1000,
-        "contentType": "text/html"
-      },
-      "imageUrl": {
-        "type": "string",
-        "format": "uri",
-        "description": "URL d'une image pour illustrer le sondage",
-        "example": "https://exemple.com/image.jpg",
-        "pattern": "^https?://.+\\.(jpg|jpeg|png|gif|webp)$"
-      },
-      "answers": {
-        "type": "array",
-        "description": "Réponses possibles du sondage",
-        "minItems": 2,
-        "maxItems": 10,
-        "items": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 200
-        }
-      },
-      "allowMultipleAnswers": {
-        "type": "boolean",
-        "description": "Autoriser plusieurs réponses par personne", 
-        "default": false
-      },
-      "hasDeadline": {
-        "type": "boolean",
-        "description": "Définir une date limite de vote",
-        "default": false
-      },
-      "deadlineDate": {
-        "type": "string",
-        "format": "date-time",
-        "description": "Date limite de vote (ISO 8601)",
-        "conditionalRequired": ["hasDeadline == true"],
-        "validation": "Doit être dans le futur"
-      },
-      "votingResults": {
-        "type": "object",
-        "description": "Résultats du sondage",
-        "properties": {
-          "totalVotes": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "results": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "answer": {"type": "string"},
-                "votes": {"type": "integer", "minimum": 0},
-                "percentage": {"type": "number", "minimum": 0, "maximum": 100}
-              }
-            }
-          }
-        }
-      },
-      "targetResidences": {
-        "type": "array",
-        "minItems": 1,
-        "items": {
-          "type": "string",
-          "format": "uuid"
-        }
-      },
-      "targetResidenceNames": {
-        "type": "array",
-        "items": {
-          "type": "string"
-        }
-      },
-      "status": {
-        "type": "string",
-        "enum": ["Brouillon", "Publié", "Programmé", "Fermé", "Archivé"]
-      },
-      "publicationDate": {
-        "type": "string",
-        "format": "date-time"
-      },
-      "publishLater": {
-        "type": "boolean",
-        "default": false
-      },
-      "createdAt": {
-        "type": "string",
-        "format": "date-time"
-      },
-      "createdBy": {
-        "type": "string"
-      },
-      "updatedAt": {
-        "type": "string",
-        "format": "date-time"
-      }
+  "entity": "Polls",
+  "description": "Publications de type sondage",
+  "fields": {
+    "id": {
+      "type": "integer",
+      "required": true,
+      "auto_generated": true,
+      "description": "Identifiant unique"
     },
-    "validationRules": {
-      "pollSpecific": {
-        "answers": "Minimum 2 réponses, toutes non vides et uniques",
-        "deadlineDate": "Si hasDeadline=true, doit être dans le futur"
+    "question": {
+      "type": "text",
+      "format": "html",
+      "required": true,
+      "max_length": 1000,
+      "description": "Question du sondage (HTML WYSIWYG)"
+    },
+    "imageUrl": {
+      "type": "string",
+      "required": false,
+      "nullable": true,
+      "format": "url",
+      "description": "URL d'une image pour illustrer le sondage"
+    },
+    "answers": {
+      "type": "array",
+      "item_type": "string",
+      "required": true,
+      "min_items": 2,
+      "max_items": 10,
+      "description": "Réponses possibles du sondage"
+    },
+    "allowMultipleAnswers": {
+      "type": "boolean",
+      "required": false,
+      "default": false,
+      "description": "Autoriser plusieurs réponses par personne"
+    },
+    "hasDeadline": {
+      "type": "boolean",
+      "required": false,
+      "default": false,
+      "description": "Définir une date limite de vote"
+    },
+    "deadlineDate": {
+      "type": "datetime",
+      "required": false,
+      "nullable": true,
+      "format": "ISO8601",
+      "description": "Date limite de vote"
+    },
+    "votingResults": {
+      "type": "json",
+      "required": false,
+      "nullable": true,
+      "structure": {
+        "totalVotes": "integer",
+        "results": [
+          {
+            "answer": "string",
+            "votes": "integer",
+            "percentage": "number"
+          }
+        ]
       },
-      "statusTransitions": {
-        "Fermé": "Seulement si deadlineDate atteinte ou fermeture manuelle"
-      }
+      "description": "Résultats du sondage"
+    },
+    "targetResidences": {
+      "type": "array",
+      "item_type": "uuid",
+      "required": true,
+      "min_items": 1,
+      "description": "Liste des résidences cibles"
+    },
+    "targetResidenceNames": {
+      "type": "array",
+      "item_type": "string",
+      "required": false,
+      "description": "Noms des résidences (affichage)"
+    },
+    "status": {
+      "type": "enum",
+      "required": true,
+      "values": ["Brouillon", "Publié", "Programmé", "Fermé", "Archivé"],
+      "description": "Statut de publication"
+    },
+    "publicationDate": {
+      "type": "datetime",
+      "required": true,
+      "format": "ISO8601",
+      "description": "Date de publication"
+    },
+    "publishLater": {
+      "type": "boolean",
+      "required": false,
+      "default": false,
+      "description": "Publication programmée"
+    },
+    "createdAt": {
+      "type": "datetime",
+      "required": true,
+      "auto_generated": true,
+      "description": "Date de création"
+    },
+    "createdBy": {
+      "type": "string",
+      "required": true,
+      "description": "ID utilisateur créateur"
+    },
+    "updatedAt": {
+      "type": "datetime",
+      "required": false,
+      "nullable": true,
+      "description": "Dernière modification"
     }
   }
+}

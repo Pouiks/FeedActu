@@ -171,7 +171,25 @@ export default function DailyMessages() {
         entityName="Message du jour"
         fields={[
           { name: 'title', label: 'Titre du message', type: 'text', required: true },
-          { name: 'message', label: 'Message du jour', type: 'wysiwyg', required: true }
+          { name: 'message', label: 'Message du jour', type: 'wysiwyg', required: true },
+          {
+            name: 'priority',
+            label: 'Priorité',
+            type: 'select',
+            required: true,
+            options: [
+              { value: 'low', label: 'Faible' },
+              { value: 'normal', label: 'Normale' },
+              { value: 'high', label: 'Élevée' },
+              { value: 'urgent', label: 'Urgente' }
+            ]
+          },
+          { 
+            name: 'publicationDate', 
+            label: 'Date de publication', 
+            type: 'datetime', 
+            required: true
+          }
         ]}
       />
 

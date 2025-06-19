@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { Paper, Typography, Box, Chip, TextField, Button, Stack } from '@mui/material';
-import { DatePicker, TimePicker } from '@mui/x-date-pickers';
+import { DatePicker, TimePicker, DateTimePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { fr } from 'date-fns/locale';
@@ -127,7 +127,8 @@ export default function EventDetail() {
         endTime: new Date(`2000-01-01T${foundEvent.endTime}:00`),
         location: foundEvent.location || '',
         maxParticipants: foundEvent.maxParticipants || '',
-        description: foundEvent.description || ''
+        description: foundEvent.description || '',
+        publicationDate: foundEvent.publicationDate || new Date().toISOString()
       });
     }
   }, [id]);
@@ -143,7 +144,8 @@ export default function EventDetail() {
       editedEvent.endTime?.toTimeString().slice(0, 5) !== event.endTime ||
       editedEvent.location !== event.location ||
       editedEvent.maxParticipants !== event.maxParticipants ||
-      editedEvent.description !== event.description;
+      editedEvent.description !== event.description ||
+      editedEvent.publicationDate !== event.publicationDate;
     
     setIsDirty(hasChanges);
   }, [editedEvent, event]);
@@ -173,7 +175,8 @@ export default function EventDetail() {
       endTime: editedEvent.endTime.toTimeString().slice(0, 5),
       location: editedEvent.location,
       maxParticipants: editedEvent.maxParticipants,
-      description: editedEvent.description
+      description: editedEvent.description,
+      publicationDate: editedEvent.publicationDate
     };
     setEvent(updatedEvent);
     setIsDirty(false);
@@ -297,6 +300,23 @@ export default function EventDetail() {
             variant="outlined"
             placeholder="Laisser vide si pas de limite"
           />
+
+          {/* Date de publication modifiable */}
+          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={fr}>
+            <DateTimePicker
+              label="Date de publication"
+              value={editedEvent.publicationDate ? new Date(editedEvent.publicationDate) : null}
+              onChange={(newValue) => handleFieldChange('publicationDate', newValue?.toISOString())}
+              slotProps={{ 
+                textField: { 
+                  fullWidth: true,
+                  required: true,
+                  helperText: "Date et heure de publication de l'événement"
+                }
+              }}
+              ampm={false}
+            />
+          </LocalizationProvider>
 
           {/* Description */}
           <Box>

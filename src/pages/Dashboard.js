@@ -134,114 +134,40 @@ const RecentActivityCard = ({ title, items }) => (
         </Button>
       </Stack>
       
-      <Stack spacing={1.5} sx={{ flex: 1, overflow: 'auto' }}>
+      <Stack spacing={2} sx={{ flex: 1, overflow: 'auto' }}>
         {items.map((item, index) => (
           <Box key={index}>
-            <Stack direction="row" alignItems="center" spacing={1.5}>
-              <Avatar sx={{ bgcolor: item.color, width: 28, height: 28 }}>
+            <Stack direction="row" alignItems="flex-start" spacing={1.5} sx={{ py: 0.5 }}>
+              <Avatar sx={{ 
+                bgcolor: item.color, 
+                width: 36, 
+                height: 36,
+                flexShrink: 0,
+                mt: 0.25
+              }}>
                 {item.icon}
               </Avatar>
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.25, fontSize: '0.8rem' }}>
+              <Box sx={{ flex: 1, minWidth: 0, pt: 0.25 }}>
+                <Typography variant="body2" sx={{ 
+                  fontWeight: 500, 
+                  mb: 0.5, 
+                  fontSize: '0.8rem',
+                  lineHeight: 1.3 
+                }}>
                   {item.title}
                 </Typography>
                 <Stack direction="row" alignItems="center" spacing={0.5}>
-                  <ScheduleOutlined sx={{ fontSize: 10, color: 'var(--theme-foreground-subdued)' }} />
+                  <ScheduleOutlined sx={{ fontSize: 12, color: 'var(--theme-foreground-subdued)' }} />
                   <Typography variant="caption" sx={{ color: 'var(--theme-foreground-subdued)', fontSize: '0.65rem' }}>
                     {item.time}
                   </Typography>
                 </Stack>
               </Box>
             </Stack>
-            {index < items.length - 1 && <Divider sx={{ mt: 1 }} />}
+            {index < items.length - 1 && <Divider sx={{ my: 1 }} />}
           </Box>
         ))}
       </Stack>
-    </CardContent>
-  </Card>
-);
-
-const QuickActionsCard = () => (
-  <Card className="directus-card">
-    <CardContent sx={{ p: 3 }}>
-      <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
-        Actions Rapides
-      </Typography>
-      
-      <Grid container spacing={2}>
-        <Grid item xs={6}>
-          <Button
-            fullWidth
-            variant="outlined"
-            startIcon={<ArticleOutlined />}
-            sx={{
-              py: 1.5,
-              borderColor: 'var(--theme-border-normal)',
-              color: 'var(--theme-foreground-normal)',
-              '&:hover': {
-                borderColor: 'var(--theme-primary)',
-                backgroundColor: 'var(--theme-primary-50)'
-              }
-            }}
-          >
-            Nouveau Post
-          </Button>
-        </Grid>
-        <Grid item xs={6}>
-          <Button
-            fullWidth
-            variant="outlined"
-            startIcon={<EventOutlined />}
-            sx={{
-              py: 1.5,
-              borderColor: 'var(--theme-border-normal)',
-              color: 'var(--theme-foreground-normal)',
-              '&:hover': {
-                borderColor: 'var(--theme-primary)',
-                backgroundColor: 'var(--theme-primary-50)'
-              }
-            }}
-          >
-            Nouvel Événement
-          </Button>
-        </Grid>
-        <Grid item xs={6}>
-          <Button
-            fullWidth
-            variant="outlined"
-            startIcon={<PollOutlined />}
-            sx={{
-              py: 1.5,
-              borderColor: 'var(--theme-border-normal)',
-              color: 'var(--theme-foreground-normal)',
-              '&:hover': {
-                borderColor: 'var(--theme-primary)',
-                backgroundColor: 'var(--theme-primary-50)'
-              }
-            }}
-          >
-            Nouveau Sondage
-          </Button>
-        </Grid>
-        <Grid item xs={6}>
-          <Button
-            fullWidth
-            variant="outlined"
-            startIcon={<NotificationsOutlined />}
-            sx={{
-              py: 1.5,
-              borderColor: 'var(--theme-border-normal)',
-              color: 'var(--theme-foreground-normal)',
-              '&:hover': {
-                borderColor: 'var(--theme-primary)',
-                backgroundColor: 'var(--theme-primary-50)'
-              }
-            }}
-          >
-            Nouvelle Alerte
-          </Button>
-        </Grid>
-      </Grid>
     </CardContent>
   </Card>
 );

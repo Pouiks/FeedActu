@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Paper, Typography, Box, Chip, Button, Stack } from '@mui/material';
+import { Paper, Typography, Box, Chip, Button, Stack, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { DateTimePicker } from '@mui/x-date-pickers';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { fr } from 'date-fns/locale';
 import BackButton from '../components/BackButton';
 import RichTextEditor from '../components/RichTextEditor';
 
@@ -92,7 +96,10 @@ export default function AlertDetail() {
     if (foundAlert) {
       setAlert(foundAlert);
       setEditedAlert({ 
-        message: foundAlert.message || ''
+        message: foundAlert.message || '',
+        type: foundAlert.type || '',
+        priority: foundAlert.priority || '',
+        publicationDate: foundAlert.publicationDate || new Date().toISOString()
       });
     }
   }, [id]);
@@ -101,7 +108,12 @@ export default function AlertDetail() {
   useEffect(() => {
     if (!alert) return;
     
-    const hasChanges = editedAlert.message !== alert.message;
+    const hasChanges = 
+      editedAlert.message !== alert.message ||
+      editedAlert.type !== alert.type ||
+      editedAlert.priority !== alert.priority ||
+      editedAlert.publicationDate !== alert.publicationDate;
+      
     setIsDirty(hasChanges);
   }, [editedAlert, alert]);
 
@@ -168,6 +180,55 @@ export default function AlertDetail() {
         </Typography>
 
         <Stack spacing={3}>
+          {/* Type d'alerte */}
+          <FormControl fullWidth>
+            <InputLabel>Type d'alerte</InputLabel>
+            <Select
+              value={editedAlert.type}
+              onChange={(e) => handleFieldChange('type', e.target.value)}
+              label="Type d'alerte"
+            >
+              <MenuItem value="maintenance">Maintenance</MenuItem>
+              <MenuItem value="security">Sécurité</MenuItem>
+              <MenuItem value="weather">Météo</MenuItem>
+              <MenuItem value="water">Eau/Plomberie</MenuItem>
+              <MenuItem value="other">Autre</MenuItem>
+            </Select>
+          </FormControl>
+
+          {/* Priorité de l'alerte */}
+          <FormControl fullWidth>
+            <InputLabel>Priorité</InputLabel>
+            <Select
+              value={editedAlert.priority}
+              onChange={(e) => handleFieldChange('priority', e.target.value)}
+              label="Priorité"
+            >
+              <MenuItem value="low">Basse</MenuItem>
+              <MenuItem value="normal">Normale</MenuItem>
+              <MenuItem value="high">Élevée</MenuItem>
+              <MenuItem value="critical">Critique</MenuItem>
+              <MenuItem value="urgent">Urgente</MenuItem>
+            </Select>
+          </FormControl>
+
+          {/* Date de publication modifiable */}
+          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={fr}>
+            <DateTimePicker
+              label="Date de publication"
+              value={editedAlert.publicationDate ? new Date(editedAlert.publicationDate) : null}
+              onChange={(newValue) => handleFieldChange('publicationDate', newValue?.toISOString())}
+              slotProps={{ 
+                textField: { 
+                  fullWidth: true,
+                  required: true,
+                  helperText: "Date et heure de publication de l'alerte"
+                }
+              }}
+              ampm={false}
+            />
+          </LocalizationProvider>
+
           {/* Message d'alerte */}
           <Box>
             <Typography variant="subtitle1" gutterBottom>Message de l'alerte</Typography>
