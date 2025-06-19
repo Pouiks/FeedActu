@@ -6,6 +6,7 @@ import App from './App';
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ResidenceProvider } from './context/ResidenceContext';
+import './debug-import'; // LIGNE TEMPORAIRE - à supprimer
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
