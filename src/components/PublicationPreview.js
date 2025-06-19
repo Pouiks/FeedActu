@@ -1,6 +1,6 @@
 import { Card, CardHeader, CardContent, Accordion, AccordionSummary, AccordionDetails, Typography, Alert } from '@mui/material';
 import { PublicationLogger } from '../utils/publicationLogger';
-import { useAuth } from '../context/AuthContext'; // Assurez-vous que ce chemin est correct
+import { useAuth } from '../hooks/useAuth';
 import { PublicationRenderer } from './PublicationRenderer';
 
 // Prévisualisation complète avant publication
