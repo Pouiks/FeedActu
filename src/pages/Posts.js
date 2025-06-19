@@ -5,7 +5,7 @@ import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
 import PageHeader from '../components/PageHeader';
 import { useAuth } from '../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+
 import { useResidence } from '../context/ResidenceContext';
 import { usePublications } from '../context/PublicationsContext';
 
@@ -91,7 +91,7 @@ export default function Posts() {
   const [openModal, setOpenModal] = useState(false);
   const [editingPost, setEditingPost] = useState(null);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
-  const navigate = useNavigate();
+
 
   const columns = [
     { id: 'title', label: 'Titre', sortable: true, searchable: true },
@@ -258,8 +258,8 @@ export default function Posts() {
     setEditingPost(null);
   };
 
-  const handleRowClick = (post, navigate) => {
-    navigate(`/posts/${post.id}`);
+  const handleRowClick = (post) => {
+    handleEditPost(post);
   };
 
   const handleCloseNotification = () => {

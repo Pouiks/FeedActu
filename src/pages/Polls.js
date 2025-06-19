@@ -86,8 +86,13 @@ export default function Polls() {
     }
   };
 
-  const handleRowClick = (poll, navigate) => {
-    navigate(`/polls/${poll.id}`);
+  const handleEditPoll = (poll) => {
+    setEditingPoll(poll);
+    setOpenModal(true);
+  };
+
+  const handleRowClick = (poll) => {
+    handleEditPoll(poll);
   };
 
   const handleCloseNotification = () => {
@@ -126,7 +131,7 @@ export default function Polls() {
         onRowClick={handleRowClick}
         showActions={true}
         onPublishDraft={(poll) => publishDraft('polls', poll.id)}
-        onEditItem={(poll) => { setEditingPoll(poll); setOpenModal(true); }}
+        onEditItem={handleEditPoll}
         onDeleteItem={(poll) => { if(window.confirm(`Supprimer "${poll.question}" ?`)) deletePublication('polls', poll.id); }}
       />
 

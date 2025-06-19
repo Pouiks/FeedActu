@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Alert, Snackbar } from '@mui/material';
 import { Add } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+
 import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
 import PageHeader from '../components/PageHeader';
@@ -13,7 +13,7 @@ export default function Events() {
   const { ensureAuthenticated, authorizedResidences } = useAuth();
   const { currentResidenceName } = useResidence();
   const { getPublications, addPublication, publishDraft, updatePublication, deletePublication } = usePublications();
-  const navigate = useNavigate();
+
   const [openModal, setOpenModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null); // NOUVEAU : Pour l'édition
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
@@ -182,8 +182,8 @@ export default function Events() {
     setNotification({ ...notification, open: false });
   };
 
-  const handleRowClick = (event, navigate) => {
-    navigate(`/events/${event.id}`);
+  const handleRowClick = (event) => {
+    handleEditEvent(event);
   };
 
   return (

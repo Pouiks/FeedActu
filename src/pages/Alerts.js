@@ -5,7 +5,7 @@ import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
 import PageHeader from '../components/PageHeader';
 import { useAuth } from '../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+
 import { useResidence } from '../context/ResidenceContext';
 import { usePublications } from '../context/PublicationsContext';
 
@@ -91,7 +91,7 @@ export default function Alerts() {
   const [openModal, setOpenModal] = useState(false);
   const [editingAlert, setEditingAlert] = useState(null);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
-  const navigate = useNavigate();
+
 
   const columns = [
     { id: 'title', label: 'Titre', sortable: true, searchable: true },
@@ -149,8 +149,13 @@ export default function Alerts() {
     }
   };
 
-  const handleRowClick = (alert, navigate) => {
-    navigate(`/alerts/${alert.id}`);
+  const handleEditAlert = (alert) => {
+    setEditingAlert(alert);
+    setOpenModal(true);
+  };
+
+  const handleRowClick = (alert) => {
+    handleEditAlert(alert);
   };
 
   const handleCloseNotification = () => {
@@ -189,14 +194,22 @@ export default function Alerts() {
         onRowClick={handleRowClick}
         showActions={true}
         onPublishDraft={(alert) => publishDraft('alerts', alert.id)}
-        onEditItem={(alert) => { setEditingAlert(alert); setOpenModal(true); }}
+        onEditItem={handleEditAlert}
         onDeleteItem={(alert) => { if(window.confirm(`Supprimer cette alerte ?`)) deletePublication('alerts', alert.id); }}
       />
 
       <ModalPublicationForm
         open={openModal}
-        handleClose={() => setOpenModal(false)}
-        onSubmit={handleAddAlert}
+        handleClose={() => { setOpenModal(false); setEditingAlert(null); }}
+        onSubmit={editingAlert ? 
+          (data) => {
+            updatePublication('alerts', editingAlert.id, data);
+            setOpenModal(false);
+            setEditingAlert(null);
+            setNotification({ open: true, message: 'Alerte mise à jour avec succès !', severity: 'success' });
+          } : 
+          handleAddAlert
+        }
         entityName="Alerte"
         fields={[
           { name: 'message', label: 'Message de l\'alerte', type: 'wysiwyg', required: true },
@@ -233,6 +246,8 @@ export default function Alerts() {
             helperText: 'Date et heure de publication de l\'alerte'
           }
         ]}
+        initialValues={editingAlert || {}}
+        isEditing={!!editingAlert}
       />
 
       <Snackbar

@@ -17,8 +17,9 @@ import frLocale from '@fullcalendar/core/locales/fr';
 export default function EventsCalendar() {
   const { ensureAuthenticated } = useAuth();
   const { currentResidenceId, currentResidenceName } = useResidence();
-  const { getPublications, addPublication } = usePublications();
+  const { getPublications, addPublication, updatePublication, getPublicationById } = usePublications();
   const [openModal, setOpenModal] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null); // NOUVEAU : Pour l'édition
   const [notification, setNotification] = useState({
     open: false,
     message: '',
@@ -32,22 +33,53 @@ export default function EventsCalendar() {
 
   // Filtrer les événements par résidence (mémorisé pour performance)
   const filteredEvents = useMemo(() => 
-    events.filter(event => event.residence_id === currentResidenceId),
+    events.filter(event => {
+      // Gérer les différents formats de résidence
+      if (event.targetResidences && Array.isArray(event.targetResidences)) {
+        return event.targetResidences.includes(currentResidenceId);
+      }
+      // Format legacy avec residence_id
+      return event.residence_id === currentResidenceId;
+    }),
     [events, currentResidenceId]
   );
 
   // Convertir pour FullCalendar (mémorisé pour performance)
   const calendarEvents = useMemo(() => 
-    filteredEvents.map(event => ({
-      id: event.id.toString(),
-      title: event.title,
-      start: `${event.eventDate}T${event.startTime}:00`,
-      end: `${event.eventDate}T${event.endTime}:00`,
-      extendedProps: {
-        ...event,
-        isArchived: event.status === 'Archivé'
+    filteredEvents.map(event => {
+      // Gérer différents formats de données
+      let startDateTime, endDateTime;
+      
+      if (event.eventDateRange) {
+        // Format ModalPublicationForm (eventDateRange)
+        startDateTime = event.eventDateRange.start || event.eventDateRange.startDate;
+        endDateTime = event.eventDateRange.end || event.eventDateRange.endDate;
+      } else if (event.eventDate && event.startTime && event.endTime) {
+        // Format MockEvents (eventDate + startTime + endTime)
+        startDateTime = `${event.eventDate}T${event.startTime}:00`;
+        endDateTime = `${event.eventDate}T${event.endTime}:00`;
+      } else if (event.startDate && event.endDate) {
+        // Format alternatif (startDate/endDate)
+        startDateTime = event.startDate;
+        endDateTime = event.endDate;
+      } else {
+        // Format de fallback
+        const date = event.eventDate || event.publicationDate || new Date().toISOString().split('T')[0];
+        startDateTime = `${date}T09:00:00`;
+        endDateTime = `${date}T10:00:00`;
       }
-    })), [filteredEvents]
+      
+      return {
+        id: event.id.toString(),
+        title: event.title || 'Événement sans titre',
+        start: startDateTime,
+        end: endDateTime,
+        extendedProps: {
+          ...event,
+          isArchived: event.status === 'Archivé'
+        }
+      };
+    }), [filteredEvents]
   );
 
   // === DRAG & DROP SIMPLE QUI FONCTIONNE ===
@@ -83,10 +115,32 @@ export default function EventsCalendar() {
     }
   };
 
-  // Clic sur événement
+  // Clic sur événement - Ouvrir popup de modification
   const handleEventClick = (clickInfo) => {
-    const eventId = clickInfo.event.id;
-    navigate(`/events/${eventId}`);
+    try {
+      ensureAuthenticated('modifier un événement');
+      
+      const eventId = clickInfo.event.id;
+      const event = getPublicationById('events', eventId);
+      
+      if (event) {
+        setEditingEvent(event);
+        setSelectedDate(null); // Pas de date présélectionnée en mode édition
+        setOpenModal(true);
+      } else {
+        setNotification({
+          open: true,
+          message: 'Événement introuvable',
+          severity: 'error'
+        });
+      }
+    } catch (error) {
+      setNotification({
+        open: true,
+        message: 'Vous devez être connecté pour modifier un événement',
+        severity: 'error'
+      });
+    }
   };
 
   // Clic sur date
@@ -104,26 +158,37 @@ export default function EventsCalendar() {
     }
   };
 
-  const handleAddEvent = async (newEvent) => {
+  const handleSubmitEvent = async (eventData) => {
     try {
-      ensureAuthenticated('créer un nouvel événement');
+      ensureAuthenticated(editingEvent ? 'modifier un événement' : 'créer un nouvel événement');
       
-      // Utiliser le contexte pour ajouter l'événement
-      await addPublication('events', newEvent);
+      if (editingEvent) {
+        // Mise à jour d'un événement existant
+        await updatePublication('events', editingEvent.id, eventData);
+        setNotification({
+          open: true,
+          message: `Événement "${eventData.title}" mis à jour avec succès !`,
+          severity: 'success'
+        });
+      } else {
+        // Création d'un nouvel événement
+        await addPublication('events', eventData);
+        setNotification({
+          open: true,
+          message: 'Événement créé avec succès !',
+          severity: 'success'
+        });
+      }
       
       setOpenModal(false);
       setSelectedDate(null);
-      setNotification({
-        open: true,
-        message: 'Événement créé avec succès !',
-        severity: 'success'
-      });
+      setEditingEvent(null);
       
     } catch (error) {
-      console.error('❌ Erreur lors de la création de l\'événement:', error);
+      console.error('❌ Erreur lors de la soumission:', error);
       setNotification({
         open: true,
-        message: 'Erreur lors de la création de l\'événement',
+        message: editingEvent ? 'Erreur lors de la mise à jour de l\'événement' : 'Erreur lors de la création de l\'événement',
         severity: 'error'
       });
     }
@@ -143,9 +208,14 @@ export default function EventsCalendar() {
   };
 
   const getInitialValues = () => {
-    if (selectedDate) {
+    if (editingEvent) {
+      // Mode édition - retourner les valeurs de l'événement
+      return editingEvent;
+    } else if (selectedDate) {
+      // Mode création avec date présélectionnée
       return { eventDate: selectedDate };
     }
+    // Mode création normale
     return {};
   };
 
@@ -258,10 +328,12 @@ export default function EventsCalendar() {
         handleClose={() => {
           setOpenModal(false);
           setSelectedDate(null);
+          setEditingEvent(null);
         }}
-        onSubmit={handleAddEvent}
+        onSubmit={handleSubmitEvent}
         entityName="Événement"
         initialValues={getInitialValues()}
+        isEditing={!!editingEvent}
         fields={[
           { name: 'title', label: 'Titre de l\'événement', type: 'text', required: true },
           { name: 'description', label: 'Description', type: 'wysiwyg', required: true },

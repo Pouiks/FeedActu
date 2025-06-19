@@ -5,7 +5,7 @@ import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
 import PageHeader from '../components/PageHeader';
 import { useAuth } from '../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+
 import { useResidence } from '../context/ResidenceContext';
 
 const mockDailyMessages = [
@@ -55,9 +55,10 @@ export default function DailyMessages() {
   const { ensureAuthenticated, authenticatedPost } = useAuth();
   const { currentResidenceId, currentResidenceName } = useResidence();
   const [openModal, setOpenModal] = useState(false);
+  const [editingMessage, setEditingMessage] = useState(null);
   const [messages, setMessages] = useState(mockDailyMessages);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
-  const navigate = useNavigate();
+
 
   const columns = [
     { id: 'title', label: 'Titre', sortable: true, searchable: true },
@@ -124,8 +125,13 @@ export default function DailyMessages() {
     }
   };
 
-  const handleRowClick = (message, navigate) => {
-    navigate(`/daily-messages/${message.id}`);
+  const handleEditMessage = (message) => {
+    setEditingMessage(message);
+    setOpenModal(true);
+  };
+
+  const handleRowClick = (message) => {
+    handleEditMessage(message);
   };
 
   const handleCloseNotification = () => {
@@ -162,12 +168,26 @@ export default function DailyMessages() {
         data={filteredMessages} 
         columns={columns} 
         onRowClick={handleRowClick}
+        showActions={true}
+        onEditItem={handleEditMessage}
+        onDeleteItem={(message) => { if(window.confirm(`Supprimer "${message.title}" ?`)) { 
+          setMessages(prev => prev.filter(m => m.id !== message.id)); 
+          setNotification({ open: true, message: 'Message supprimé avec succès !', severity: 'success' });
+        }}}
       />
 
       <ModalPublicationForm
         open={openModal}
-        handleClose={() => setOpenModal(false)}
-        onSubmit={handleAddMessage}
+        handleClose={() => { setOpenModal(false); setEditingMessage(null); }}
+        onSubmit={editingMessage ? 
+          (data) => {
+            setMessages(prev => prev.map(m => m.id === editingMessage.id ? { ...m, ...data } : m));
+            setOpenModal(false);
+            setEditingMessage(null);
+            setNotification({ open: true, message: 'Message mis à jour avec succès !', severity: 'success' });
+          } : 
+          handleAddMessage
+        }
         entityName="Message du jour"
         fields={[
           { name: 'title', label: 'Titre du message', type: 'text', required: true },
@@ -191,6 +211,8 @@ export default function DailyMessages() {
             required: true
           }
         ]}
+        initialValues={editingMessage || {}}
+        isEditing={!!editingMessage}
       />
 
       <Snackbar
