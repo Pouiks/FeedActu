@@ -47,27 +47,27 @@ export default function EventsCalendar() {
   // Convertir pour FullCalendar (mémorisé pour performance)
   const calendarEvents = useMemo(() => 
     filteredEvents.map(event => {
-      // Gérer différents formats de données
-      let startDateTime, endDateTime;
+      console.log('🔍 DEBUG - Événement à convertir:', event);
       
-      if (event.eventDateRange) {
-        // Format ModalPublicationForm (eventDateRange)
-        startDateTime = event.eventDateRange.start || event.eventDateRange.startDate;
-        endDateTime = event.eventDateRange.end || event.eventDateRange.endDate;
-      } else if (event.eventDate && event.startTime && event.endTime) {
-        // Format MockEvents (eventDate + startTime + endTime)
-        startDateTime = `${event.eventDate}T${event.startTime}:00`;
-        endDateTime = `${event.eventDate}T${event.endTime}:00`;
-      } else if (event.startDate && event.endDate) {
-        // Format alternatif (startDate/endDate)
-        startDateTime = event.startDate;
-        endDateTime = event.endDate;
-      } else {
-        // Format de fallback
-        const date = event.eventDate || event.publicationDate || new Date().toISOString().split('T')[0];
-        startDateTime = `${date}T09:00:00`;
-        endDateTime = `${date}T10:00:00`;
+      // Format harmonisé : startDate/endDate (prioritaire)
+      let startDateTime = event.startDate;
+      let endDateTime = event.endDate;
+      
+      // Fallback pour les anciens formats (compatibilité)
+      if (!startDateTime || !endDateTime) {
+        if (event.eventDate && event.startTime && event.endTime) {
+          // Format legacy mockData
+          startDateTime = `${event.eventDate}T${event.startTime}:00`;
+          endDateTime = `${event.eventDate}T${event.endTime}:00`;
+        } else {
+          // Format de fallback ultime
+          const date = event.eventDate || event.publicationDate || new Date().toISOString().split('T')[0];
+          startDateTime = `${date}T09:00:00`;
+          endDateTime = `${date}T10:00:00`;
+        }
       }
+      
+      console.log('📅 Dates harmonisées pour FullCalendar:', { startDateTime, endDateTime });
       
       return {
         id: event.id.toString(),
@@ -212,27 +212,36 @@ export default function EventsCalendar() {
 
   const getInitialValues = () => {
     if (editingEvent) {
-      // Mode édition - retourner les valeurs de l'événement
-      return editingEvent;
+      // Mode édition - convertir vers le nouveau format harmonisé
+      console.log('📅 Mode édition - Événement existant:', editingEvent);
+      
+      return {
+        ...editingEvent,
+        // Convertir les anciens formats vers le nouveau
+        eventDateTimeStart: editingEvent.startDate ? new Date(editingEvent.startDate) : 
+                           (editingEvent.eventDate && editingEvent.startTime ? 
+                            new Date(`${editingEvent.eventDate}T${editingEvent.startTime}:00`) : null),
+        eventDateTimeEnd: editingEvent.endDate ? new Date(editingEvent.endDate) : 
+                         (editingEvent.eventDate && editingEvent.endTime ? 
+                          new Date(`${editingEvent.eventDate}T${editingEvent.endTime}:00`) : null)
+      };
     } else if (selectedDate) {
       // Mode création avec date présélectionnée
       const selectedDateTime = new Date(selectedDate);
-      // Définir une heure de début par défaut (ex: 14h00)
       selectedDateTime.setHours(14, 0, 0, 0);
       
       const endDateTime = new Date(selectedDate);
-      // Définir une heure de fin par défaut (ex: 15h00)
       endDateTime.setHours(15, 0, 0, 0);
       
       console.log('📅 Date sélectionnée dans le calendrier:', selectedDate);
-      console.log('📅 Valeurs initiales calculées:', {
-        eventDateRangeStart: selectedDateTime,
-        eventDateRangeEnd: endDateTime
+      console.log('📅 Valeurs initiales harmonisées:', {
+        eventDateTimeStart: selectedDateTime,
+        eventDateTimeEnd: endDateTime
       });
       
       return { 
-        eventDateRangeStart: selectedDateTime,
-        eventDateRangeEnd: endDateTime
+        eventDateTimeStart: selectedDateTime,
+        eventDateTimeEnd: endDateTime
       };
     }
     // Mode création normale
@@ -357,7 +366,7 @@ export default function EventsCalendar() {
         fields={[
           { name: 'title', label: 'Titre de l\'événement', type: 'text', required: true },
           { name: 'description', label: 'Description', type: 'wysiwyg', required: true },
-          { name: 'eventDateRange', label: 'Date et heure de l\'événement', type: 'daterange', required: true },
+          { name: 'eventDateTime', label: 'Date et heure de l\'événement', type: 'daterange', required: true },
           { name: 'location', label: 'Lieu', type: 'text', required: true },
           { name: 'eventImage', label: 'Image de l\'événement', type: 'image' },
           { name: 'hasParticipantLimit', label: 'Limiter le nombre de participants', type: 'checkbox' },

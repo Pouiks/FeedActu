@@ -114,6 +114,9 @@ export default function ModalPublicationForm({
         if (!loadedFromDraft) {
           const initialData = { ...initialValues };
           
+          console.log('📅 DEBUG - initialValues reçues:', initialValues);
+          console.log('📅 DEBUG - initialData avant traitement:', initialData);
+          
           // Initialiser automatiquement les champs daterange
           fields.forEach(field => {
             if (field.type === 'daterange') {
@@ -145,6 +148,7 @@ export default function ModalPublicationForm({
             }
           });
           
+          console.log('📅 DEBUG - initialData après traitement:', initialData);
           setFormData(initialData);
           
           // NOUVEAU : Pour l'édition, pré-remplir les résidences et autres champs
@@ -351,10 +355,19 @@ export default function ModalPublicationForm({
         ...(fields.some(f => f.type === 'pollAnswers') && { 
           answers: pollAnswers.filter(answer => answer.trim() !== '') 
         }),
-        // 📅 Logique publishLater
-        publishLater: publishLater, // Toujours présent (true/false)
+        
+        // 📅 HARMONISATION : Convertir les champs daterange vers le format standard
+        ...(formData.eventDateTimeStart && formData.eventDateTimeEnd && {
+          startDate: formData.eventDateTimeStart,
+          endDate: formData.eventDateTimeEnd,
+          // Pour compatibilité avec DataTable et affichage
+          eventDate: new Date(formData.eventDateTimeStart).toLocaleDateString('fr-FR')
+        }),
+        
+        // 📅 Logique publishLater (INCHANGÉE - fonctionne déjà partout)
+        publishLater: publishLater,
         publicationDate: finalPublicationDate,
-        publishDateTime: publishLater ? publishDateTime.toISOString() : '', // Vide si publishLater = false
+        publishDateTime: publishLater ? publishDateTime.toISOString() : '',
         
         targetResidences: finalSecureResidences,
         targetResidenceNames: finalSecureResidences.map(id => {
