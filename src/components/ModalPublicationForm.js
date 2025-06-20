@@ -116,13 +116,27 @@ export default function ModalPublicationForm({
           
           // Initialiser automatiquement les champs daterange
           fields.forEach(field => {
-            if (field.type === 'daterange' && !initialData[`${field.name}Start`]) {
-              const now = new Date();
-              const endTime = new Date();
-              endTime.setHours(endTime.getHours() + 1); // +1h par défaut
+            if (field.type === 'daterange') {
+              // Vérifier d'abord si des valeurs initiales existent
+              const startKey = `${field.name}Start`;
+              const endKey = `${field.name}End`;
               
-              initialData[`${field.name}Start`] = now;
-              initialData[`${field.name}End`] = endTime;
+              console.log(`🔍 Initialisation ${field.name}: startKey=${startKey}, endKey=${endKey}`);
+              console.log(`🔍 Valeurs initiales: start=${initialData[startKey]}, end=${initialData[endKey]}`);
+              
+              if (!initialData[startKey] && !initialData[endKey]) {
+                // Seulement si aucune valeur initiale n'est fournie, utiliser des valeurs par défaut
+                const now = new Date();
+                const endTime = new Date();
+                endTime.setHours(endTime.getHours() + 1); // +1h par défaut
+                
+                initialData[startKey] = now;
+                initialData[endKey] = endTime;
+                
+                console.log('📅 Aucune valeur initiale trouvée, utilisation des valeurs par défaut');
+              } else {
+                console.log('📅 Valeurs initiales trouvées, conservation des valeurs existantes');
+              }
             }
             
             // Pour les champs datetime requis sans valeur initiale en mode création

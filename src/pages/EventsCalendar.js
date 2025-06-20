@@ -148,6 +148,7 @@ export default function EventsCalendar() {
     try {
       ensureAuthenticated('créer un nouvel événement');
       setSelectedDate(dateInfo.dateStr);
+      setEditingEvent(null); // S'assurer qu'on n'est pas en mode édition
       setOpenModal(true);
     } catch (error) {
       setNotification({
@@ -197,6 +198,8 @@ export default function EventsCalendar() {
   const handleNewEventClick = () => {
     try {
       ensureAuthenticated('créer un nouvel événement');
+      setSelectedDate(null); // Pas de date présélectionnée
+      setEditingEvent(null); // S'assurer qu'on n'est pas en mode édition
       setOpenModal(true);
     } catch (error) {
       setNotification({
@@ -213,7 +216,24 @@ export default function EventsCalendar() {
       return editingEvent;
     } else if (selectedDate) {
       // Mode création avec date présélectionnée
-      return { eventDate: selectedDate };
+      const selectedDateTime = new Date(selectedDate);
+      // Définir une heure de début par défaut (ex: 14h00)
+      selectedDateTime.setHours(14, 0, 0, 0);
+      
+      const endDateTime = new Date(selectedDate);
+      // Définir une heure de fin par défaut (ex: 15h00)
+      endDateTime.setHours(15, 0, 0, 0);
+      
+      console.log('📅 Date sélectionnée dans le calendrier:', selectedDate);
+      console.log('📅 Valeurs initiales calculées:', {
+        eventDateRangeStart: selectedDateTime,
+        eventDateRangeEnd: endDateTime
+      });
+      
+      return { 
+        eventDateRangeStart: selectedDateTime,
+        eventDateRangeEnd: endDateTime
+      };
     }
     // Mode création normale
     return {};
