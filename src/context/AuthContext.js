@@ -108,8 +108,27 @@ function AuthProviderInternal({ children }) {
           userResidences = await getAuthorizedResidencesForUser(userEmail);
           console.log('🏠 Résidences autorisées:', userResidences);
         } catch (residenceError) {
-          console.log('⚠️ Erreur récupération résidences (non bloquante):', residenceError.message);
-          userResidences = [];
+          console.error('🚨 UTILISATEUR NON AUTORISÉ lors de l\'initialisation:', residenceError.message);
+          
+          // ❌ BLOQUER L'ACCÈS : Déconnecter immédiatement
+          await instance.logoutRedirect({
+            postLogoutRedirectUri: window.location.origin
+          });
+          
+          // Nettoyer l'état avant la redirection
+          setAuthData({
+            isAuthenticated: false,
+            email: '',
+            name: '',
+            userId: '',
+            tenantId: '',
+            residenceId: null,
+            authorizedResidences: [],
+            accessToken: null,
+            isLoading: false
+          });
+          
+          return; // Arrêter l'exécution
         }
         
         // Récupérer les infos utilisateur via Microsoft Graph
@@ -218,8 +237,15 @@ function AuthProviderInternal({ children }) {
         userResidences = await getAuthorizedResidencesForUser(userEmail);
         console.log('🏠 Résidences autorisées après login:', userResidences);
       } catch (residenceError) {
-        console.log('⚠️ Erreur récupération résidences après login (non bloquante):', residenceError.message);
-        userResidences = [];
+        console.error('🚨 UTILISATEUR NON AUTORISÉ lors du login:', residenceError.message);
+        
+        // ❌ BLOQUER L'ACCÈS : Déconnecter immédiatement
+        await instance.logoutRedirect({
+          postLogoutRedirectUri: window.location.origin
+        });
+        
+        // Lever l'erreur pour que le composant Login puisse l'afficher
+        throw new Error(`Accès refusé. Votre compte n'est pas autorisé à accéder à cette application.`);
       }
       
       // Récupérer les infos utilisateur via Microsoft Graph

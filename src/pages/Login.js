@@ -30,7 +30,10 @@ export default function Login() {
       console.error('❌ Erreur lors de la connexion:', error);
       
       // Gestion des erreurs spécifiques
-      if (error.errorCode === 'user_cancelled') {
+      if (error.message && error.message.includes('Accès refusé')) {
+        // ❌ UTILISATEUR NON AUTORISÉ
+        setError('🚨 Accès refusé : Votre compte n\'est pas autorisé à accéder à cette application. Contactez votre administrateur.');
+      } else if (error.errorCode === 'user_cancelled') {
         setError('Connexion annulée par l\'utilisateur');
       } else if (error.errorCode === 'access_denied') {
         setError('Accès refusé. Vérifiez vos permissions.');
@@ -107,8 +110,19 @@ export default function Login() {
         </Typography>
 
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {error}
+          <Alert 
+            severity={error.includes('Accès refusé') ? 'error' : 'warning'} 
+            sx={{ mb: 2 }}
+            variant={error.includes('Accès refusé') ? 'filled' : 'outlined'}
+          >
+            <Typography variant="body2">
+              {error}
+            </Typography>
+            {error.includes('Accès refusé') && (
+              <Typography variant="caption" sx={{ display: 'block', mt: 1, opacity: 0.8 }}>
+                Si vous pensez que c'est une erreur, contactez votre administrateur avec votre adresse email.
+              </Typography>
+            )}
           </Alert>
         )}
 

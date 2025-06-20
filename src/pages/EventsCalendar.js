@@ -165,7 +165,10 @@ export default function EventsCalendar() {
       
       if (editingEvent) {
         // Mise à jour d'un événement existant
-        await updatePublication('events', editingEvent.id, eventData);
+        await updatePublication('events', editingEvent.id, {
+          ...eventData,
+          updatedAt: new Date().toISOString()
+        });
         setNotification({
           open: true,
           message: `Événement "${eventData.title}" mis à jour avec succès !`,
