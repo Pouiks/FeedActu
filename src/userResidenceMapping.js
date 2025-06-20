@@ -16,6 +16,13 @@ export const userResidenceMapping = {
         { residenceId: '1d5644a8-4fa7-ef11-b8e9-6045bd19a503', residenceName: 'ECLA MASSY-PALAISEAU EXTENSION OPCO' },
         { residenceId: '1f5644a8-4fa7-ef11-b8e9-6045bd19a503', residenceName: 'ECLA VILLEJUIF' }
       ],
+    'l.nassibou@uxco-group.com': [
+      { residenceId: '19f2179b-7d14-f011-998a-6045bd1919a1', residenceName: 'ECLA GENEVE ARCHAMPS' },
+      { residenceId: '195644a8-4fa7-ef11-b8e9-6045bd19a503', residenceName: 'ECLA MASSY-PALAISEAU' },
+      { residenceId: '1b5644a8-4fa7-ef11-b8e9-6045bd19a503', residenceName: 'ECLA NOISY-LE-GRAND' },
+      { residenceId: '1d5644a8-4fa7-ef11-b8e9-6045bd19a503', residenceName: 'ECLA MASSY-PALAISEAU EXTENSION OPCO' },
+      { residenceId: '1f5644a8-4fa7-ef11-b8e9-6045bd19a503', residenceName: 'ECLA VILLEJUIF' }
+    ],
     'm.flaujac@uxco-management.com': [
       { residenceId: 'ff5544a8-4fa7-ef11-b8e9-6045bd19a503', residenceName: 'ALBERT THOMAS' }
     ],
