@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Paper, Typography, Box, Chip, TextField, Button, Stack, IconButton, FormControl, InputLabel, Select, MenuItem, Checkbox, FormControlLabel } from '@mui/material';
-import { Add, Delete } from '@mui/icons-material';
+import { Paper, Typography, Box, Chip, TextField, Button, Stack, IconButton, FormControl, InputLabel, Select, MenuItem, Checkbox, FormControlLabel, Snackbar, Alert } from '@mui/material';
+import { Add, Delete, Repeat } from '@mui/icons-material';
 import { DateTimePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { fr } from 'date-fns/locale';
 import BackButton from '../components/BackButton';
 import RichTextEditor from '../components/RichTextEditor';
+import ModalRepostForm from '../components/ModalRepostForm';
+import { useAuth } from '../hooks/useAuth';
+import { usePublications } from '../context/PublicationsContext';
+import { getStatusColor, canRepost, normalizeStatus } from '../utils/publicationStatus';
 
 // Données mockées (synchronisées avec Polls.js)
 const mockPolls = [
@@ -63,25 +67,36 @@ const mockPolls = [
 
 export default function PollDetail() {
   const { id } = useParams();
+  const { user } = useAuth();
+  const { getPublicationById, updatePublication } = usePublications();
   const [poll, setPoll] = useState(null);
   const [editedPoll, setEditedPoll] = useState({});
   const [isDirty, setIsDirty] = useState(false);
+  const [openRepostModal, setOpenRepostModal] = useState(false);
+  const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
 
   useEffect(() => {
-    // Simule la récupération du sondage par ID
-    const foundPoll = mockPolls.find(p => p.id === parseInt(id));
+    // Récupération du sondage par ID depuis le contexte
+    const foundPoll = getPublicationById('polls', id);
+    console.log('🔍 DEBUG PollDetail - Recherche sondage ID:', id);
+    console.log('🔍 DEBUG PollDetail - Sondage trouvé:', foundPoll);
+    
     if (foundPoll) {
       setPoll(foundPoll);
-      setEditedPoll({ 
-        question: foundPoll.question || '',
-        answers: [...(foundPoll.answers || [''])],
-        allowMultipleAnswers: foundPoll.allowMultipleAnswers || false,
-        hasDeadline: foundPoll.hasDeadline || false,
-        deadlineDate: foundPoll.deadlineDate || new Date().toISOString(),
-        publicationDate: foundPoll.publicationDate || new Date().toISOString()
+      
+      // Adapter les champs selon la structure des données du contexte
+      setEditedPoll({
+        question: foundPoll.question || foundPoll.title || '',
+        answers: foundPoll.answers || foundPoll.options || [''],
+        allowMultipleAnswers: foundPoll.allowMultipleAnswers || foundPoll.allowMultiple || false,
+        hasDeadline: foundPoll.hasDeadline || !!foundPoll.answerDeadline || false,
+        deadlineDate: foundPoll.deadlineDate || foundPoll.answerDeadline || new Date().toISOString(),
+        publicationDate: foundPoll.publicationDate || foundPoll.createdAt || new Date().toISOString()
       });
+    } else {
+      console.warn('⚠️ Sondage non trouvé avec ID:', id);
     }
-  }, [id]);
+  }, [id, getPublicationById]);
 
   // Vérifie si des modifications ont été faites
   useEffect(() => {
@@ -131,15 +146,69 @@ export default function PollDetail() {
     }
   };
 
-  const handleSave = () => {
-    console.log('Sauvegarde du sondage:', { ...poll, ...editedPoll });
-    
-    // Simule la sauvegarde
-    const updatedPoll = { ...poll, ...editedPoll };
-    setPoll(updatedPoll);
-    setIsDirty(false);
-    
-    alert('Sondage sauvegardé avec succès !');
+  const handleSave = async () => {
+    try {
+      const updatedData = {
+        question: editedPoll.question,
+        answers: editedPoll.answers.filter(answer => answer.trim() !== ''),
+        allowMultipleAnswers: editedPoll.allowMultipleAnswers,
+        hasDeadline: editedPoll.hasDeadline,
+        deadlineDate: editedPoll.deadlineDate,
+        publicationDate: editedPoll.publicationDate
+      };
+      
+      console.log('Sauvegarde du sondage:', { ...poll, ...updatedData });
+      
+      // Sauvegarde via le contexte
+      await updatePublication('polls', poll.id, updatedData);
+      
+      // Mettre à jour l'état local
+      const updatedPoll = { ...poll, ...updatedData };
+      setPoll(updatedPoll);
+      setIsDirty(false);
+      
+      setNotification({
+        open: true,
+        message: 'Sondage sauvegardé avec succès !',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('❌ Erreur lors de la sauvegarde:', error);
+      setNotification({
+        open: true,
+        message: 'Erreur lors de la sauvegarde du sondage',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleRepostClick = () => {
+    console.log('🔍 DEBUG PollDetail - Ouverture modal republication pour sondage:', poll);
+    setOpenRepostModal(true);
+  };
+
+  const handleSubmitRepost = async (payload) => {
+    try {
+      console.log('🔍 DEBUG PollDetail - Soumission republication sondage:', payload);
+      
+      // TODO: Remplacer par l'appel API réel
+      // await repostPublication('poll', payload);
+      
+      setNotification({
+        open: true,
+        message: `Sondage "${poll.question?.replace(/<[^>]*>/g, '').substring(0, 50)}..." republié avec succès !`,
+        severity: 'success'
+      });
+      
+      setOpenRepostModal(false);
+    } catch (error) {
+      console.error('❌ Erreur lors de la republication du sondage:', error);
+      setNotification({
+        open: true,
+        message: error.message || 'Erreur lors de la republication du sondage',
+        severity: 'error'
+      });
+    }
   };
 
   if (!poll) {
@@ -151,14 +220,7 @@ export default function PollDetail() {
     );
   }
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Publié': return 'success';
-      case 'Brouillon': return 'warning';
-      case 'Archivé': return 'default';
-      default: return 'default';
-    }
-  };
+  // Fonction getStatusColor supprimée - utilise maintenant l'utilitaire unifié
 
   return (
     <Box>
@@ -169,11 +231,22 @@ export default function PollDetail() {
           <Typography variant="h6" color="text.secondary">
             Édition du sondage
           </Typography>
-          <Chip 
-            label={poll.status} 
-            color={getStatusColor(poll.status)}
-            variant="outlined"
-          />
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Button
+              variant="outlined"
+              startIcon={<Repeat />}
+              onClick={handleRepostClick}
+              disabled={!canRepost(poll.status)}
+              size="small"
+            >
+              Republier (TEST)
+            </Button>
+            <Chip 
+              label={poll.status} 
+              color={getStatusColor(poll.status)}
+              variant="outlined"
+            />
+          </Stack>
         </Box>
 
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
@@ -295,6 +368,29 @@ export default function PollDetail() {
           )}
         </Stack>
       </Paper>
+
+      {/* Modal de republication */}
+      <ModalRepostForm
+        open={openRepostModal}
+        handleClose={() => setOpenRepostModal(false)}
+        onSubmit={handleSubmitRepost}
+        originalPost={poll}
+      />
+
+      {/* Notifications */}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={() => setNotification({ ...notification, open: false })}
+      >
+        <Alert 
+          onClose={() => setNotification({ ...notification, open: false })} 
+          severity={notification.severity}
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 } 

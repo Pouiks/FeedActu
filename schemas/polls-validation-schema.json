@@ -9,45 +9,38 @@
       "description": "Identifiant unique"
     },
     "question": {
-      "type": "text",
-      "format": "html",
+      "type": "string",
       "required": true,
       "max_length": 1000,
-      "description": "Question du sondage (HTML WYSIWYG)"
+      "description": "Question du sondage"
     },
-    "imageUrl": {
-      "type": "string",
-      "required": false,
-      "nullable": true,
-      "format": "url",
-      "description": "URL d'une image pour illustrer le sondage"
-    },
-    "answers": {
+    "options": {
       "type": "array",
       "item_type": "string",
       "required": true,
       "min_items": 2,
       "max_items": 10,
-      "description": "Réponses possibles du sondage"
+      "description": "Options de réponse du sondage"
     },
-    "allowMultipleAnswers": {
+    "allowMultiple": {
       "type": "boolean",
       "required": false,
       "default": false,
       "description": "Autoriser plusieurs réponses par personne"
     },
-    "hasDeadline": {
-      "type": "boolean",
-      "required": false,
-      "default": false,
-      "description": "Définir une date limite de vote"
-    },
-    "deadlineDate": {
+    "answerDeadline": {
       "type": "datetime",
       "required": false,
       "nullable": true,
-      "format": "ISO8601",
+      "format": "yyyy-MM-dd HH:mm:ss",
       "description": "Date limite de vote"
+    },
+    "imagesBase64": {
+      "type": "array",
+      "item_type": "string",
+      "required": false,
+      "nullable": true,
+      "description": "Images en base64 (optionnel)"
     },
     "votingResults": {
       "type": "json",
@@ -65,12 +58,12 @@
       },
       "description": "Résultats du sondage"
     },
-    "targetResidences": {
+    "residenceIds": {
       "type": "array",
-      "item_type": "uuid",
+      "item_type": "string",
       "required": true,
       "min_items": 1,
-      "description": "Liste des résidences cibles"
+      "description": "Liste des IDs des résidences cibles"
     },
     "targetResidenceNames": {
       "type": "array",
@@ -81,14 +74,14 @@
     "status": {
       "type": "enum",
       "required": true,
-      "values": ["Brouillon", "Publié", "Programmé", "Fermé", "Archivé"],
+      "values": ["draft", "published"],
       "description": "Statut de publication"
     },
-    "publicationDate": {
+    "publishAt": {
       "type": "datetime",
       "required": true,
-      "format": "ISO8601",
-      "description": "Date de publication"
+      "format": "yyyy-MM-dd HH:mm:ss",
+      "description": "Date et heure de publication"
     },
     "publishLater": {
       "type": "boolean",

@@ -1,41 +1,42 @@
 import React, { useState } from 'react';
 import { Alert, Snackbar } from '@mui/material';
 import { Add } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
 import PageHeader from '../components/PageHeader';
 import { useAuth } from '../hooks/useAuth';
 import { useResidence } from '../context/ResidenceContext';
 import { usePublications } from '../context/PublicationsContext';
+import { getStandardColumns } from '../utils/publicationNormalizer';
 
 export default function Polls() {
   const { ensureAuthenticated, authorizedResidences } = useAuth();
-  const { currentResidenceName } = useResidence();
-  const { getPublications, addPublication, publishDraft, updatePublication, deletePublication } = usePublications();
+  const { currentResidenceId, currentResidenceName } = useResidence();
+  const { getNormalizedPublications, addPublication, publishDraft, updatePublication, deletePublication } = usePublications();
+  const navigate = useNavigate();
   const [openModal, setOpenModal] = useState(false);
   const [editingPoll, setEditingPoll] = useState(null); // NOUVEAU : Pour l'édition
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
 
-  const columns = [
-    { id: 'question', label: 'Question', sortable: true, searchable: true },
-    { id: 'publicationDate', label: 'Date de publication', sortable: true, searchable: false },
-    { id: 'status', label: 'Statut', sortable: true, searchable: false },
-  ];
+  // Colonnes standardisées pour les sondages
+  const columns = getStandardColumns('polls');
 
-  // Récupération des sondages via le contexte (filtrage automatique par résidence)
-  const polls = getPublications('polls');
+  // Récupération des sondages normalisés
+  const polls = getNormalizedPublications('polls', currentResidenceId);
 
   const handleAddPoll = async (newPoll) => {
     try {
       ensureAuthenticated('créer un nouveau sondage');
       
-      // Validation de sécurité des résidences
-      if (!newPoll.targetResidences || newPoll.targetResidences.length === 0) {
+      // Validation de sécurité des résidences (nouveau format: residenceIds)
+      const residenceIds = newPoll.residenceIds || newPoll.targetResidences || [];
+      if (!residenceIds || residenceIds.length === 0) {
         throw new Error('Aucune résidence sélectionnée pour la publication');
       }
 
       const authorizedIds = authorizedResidences?.map(r => r.residenceId) || [];
-      const unauthorizedResidences = newPoll.targetResidences.filter(id => !authorizedIds.includes(id));
+      const unauthorizedResidences = residenceIds.filter(id => !authorizedIds.includes(id));
       
       if (unauthorizedResidences.length > 0) {
         console.error('🚨 SÉCURITÉ: Tentative de publication dans des résidences non autorisées:', unauthorizedResidences);
@@ -46,7 +47,7 @@ export default function Polls() {
       await addPublication('polls', newPoll);
       
       setOpenModal(false);
-      const residenceCount = newPoll.targetResidences.length;
+      const residenceCount = residenceIds.length;
       setNotification({
         open: true,
         message: `Sondage créé avec succès et publié dans ${residenceCount} résidence${residenceCount > 1 ? 's' : ''} !`,
@@ -92,7 +93,8 @@ export default function Polls() {
   };
 
   const handleRowClick = (poll) => {
-    handleEditPoll(poll);
+    // Naviguer vers la page de détail au lieu d'ouvrir le modal d'édition
+    navigate(`/polls/${poll.id}`);
   };
 
   const handleCloseNotification = () => {
@@ -148,6 +150,13 @@ export default function Polls() {
           { name: 'pollAnswers', label: 'Réponses possibles', type: 'pollAnswers', required: true },
           { name: 'allowMultipleAnswers', label: 'Autoriser plusieurs réponses', type: 'checkbox' },
           { name: 'hasDeadline', label: 'Définir une date limite', type: 'checkbox' },
+          { 
+            name: 'pinned', 
+            label: 'Épingler ce sondage', 
+            type: 'checkbox',
+            required: false,
+            helperText: 'Le sondage apparaîtra en haut de la liste dans l\'app mobile'
+          },
           { name: 'deadlineDate', label: 'Date limite de vote', type: 'datetime', showIf: 'hasDeadline' },
           { 
             name: 'imageUrl', 

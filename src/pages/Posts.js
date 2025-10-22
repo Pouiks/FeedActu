@@ -1,13 +1,14 @@
 import React, { useState, useCallback } from 'react';
 import { Button, Alert, Snackbar, Box, Card, CardContent } from '@mui/material';
 import { Add } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
 import PageHeader from '../components/PageHeader';
 import { useAuth } from '../hooks/useAuth';
-
 import { useResidence } from '../context/ResidenceContext';
 import { usePublications } from '../context/PublicationsContext';
+import { getStandardColumns } from '../utils/publicationNormalizer';
 
 const mockPosts = [
   { 
@@ -87,22 +88,18 @@ const mockPosts = [
 export default function Posts() {
   const { ensureAuthenticated, authorizedResidences } = useAuth();
   const { currentResidenceId } = useResidence();
-  const { getPublications, addPublication, publishDraft, updatePublication, deletePublication } = usePublications();
+  const { getNormalizedPublications, addPublication, publishDraft, updatePublication, deletePublication } = usePublications();
+  const navigate = useNavigate();
   const [openModal, setOpenModal] = useState(false);
   const [editingPost, setEditingPost] = useState(null);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
 
 
-  const columns = [
-    { id: 'title', label: 'Titre', sortable: true, searchable: true },
-    { id: 'category', label: 'Catégorie', sortable: true, searchable: false },
-    { id: 'targetResidenceNames', label: 'Résidences', sortable: false, searchable: false },
-    { id: 'publicationDate', label: 'Date de publication', sortable: true, searchable: false },
-    { id: 'status', label: 'Statut', sortable: true, searchable: false },
-  ];
+  // Colonnes standardisées pour les posts
+  const columns = getStandardColumns('posts');
 
-  // Récupération des posts via le contexte (inclut déjà le filtrage par résidence)
-  const posts = getPublications('posts', currentResidenceId);
+  // Récupération des posts normalisés
+  const posts = getNormalizedPublications('posts', currentResidenceId);
 
   // NOUVEAU : Publier un brouillon
   const handlePublishDraft = useCallback(async (post) => {
@@ -165,20 +162,22 @@ export default function Posts() {
     }
   }, [ensureAuthenticated, deletePublication]);
 
+
   // Gérer la soumission du formulaire (création OU mise à jour)
   const handleSubmitPost = async (postData) => {
     try {
       // Vérifier l'authentification avant de procéder
       ensureAuthenticated(editingPost ? 'modifier un post' : 'créer un nouveau post');
       
-      // Validation de sécurité des résidences
-      if (!postData.targetResidences || postData.targetResidences.length === 0) {
+      // Validation de sécurité des résidences (nouveau format: residenceIds)
+      const residenceIds = postData.residenceIds || postData.targetResidences || [];
+      if (!residenceIds || residenceIds.length === 0) {
         throw new Error('Aucune résidence sélectionnée pour la publication');
       }
 
       // Vérifier que l'utilisateur a accès à toutes les résidences sélectionnées
       const authorizedIds = authorizedResidences?.map(r => r.residenceId) || [];
-      const unauthorizedResidences = postData.targetResidences.filter(id => !authorizedIds.includes(id));
+      const unauthorizedResidences = residenceIds.filter(id => !authorizedIds.includes(id));
       
       if (unauthorizedResidences.length > 0) {
         console.error('🚨 SÉCURITÉ: Tentative de publication dans des résidences non autorisées:', unauthorizedResidences);
@@ -196,7 +195,7 @@ export default function Posts() {
       } else {
         // Création d'un nouveau post (logique existante)
         await addPublication('posts', postData);
-        const residenceCount = postData.targetResidences.length;
+        const residenceCount = residenceIds.length;
         setNotification({
           open: true,
           message: `Post créé avec succès et publié dans ${residenceCount} résidence${residenceCount > 1 ? 's' : ''} !`,
@@ -258,8 +257,10 @@ export default function Posts() {
     setEditingPost(null);
   };
 
+
   const handleRowClick = (post) => {
-    handleEditPost(post);
+    // Naviguer vers la page de détail au lieu d'ouvrir le modal d'édition
+    navigate(`/posts/${post.id}`);
   };
 
   const handleCloseNotification = () => {
@@ -368,6 +369,13 @@ export default function Posts() {
             ]
           },
           { 
+            name: 'pinned', 
+            label: 'Épingler ce post', 
+            type: 'checkbox',
+            required: false,
+            helperText: 'Le post apparaîtra en haut de la liste dans l\'app mobile'
+          },
+          { 
             name: 'publicationDate', 
             label: 'Date de publication', 
             type: 'datetime', 
@@ -378,6 +386,7 @@ export default function Posts() {
         initialValues={editingPost || {}}
         isEditing={!!editingPost}
       />
+
 
       {/* Notifications */}
       <Snackbar

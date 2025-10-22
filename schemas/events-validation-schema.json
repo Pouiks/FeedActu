@@ -14,30 +14,24 @@
       "max_length": 200,
       "description": "Nom de l'événement"
     },
-    "description": {
+    "descriptionHtml": {
       "type": "text",
       "format": "html",
       "required": true,
       "max_length": 5000,
       "description": "Description HTML de l'événement (WYSIWYG)"
     },
-    "eventDate": {
-      "type": "date",
+    "startAt": {
+      "type": "datetime",
       "required": true,
-      "format": "YYYY-MM-DD",
-      "description": "Date de l'événement"
+      "format": "yyyy-MM-dd HH:mm:ss",
+      "description": "Date et heure de début de l'événement"
     },
-    "startTime": {
-      "type": "time",
+    "endAt": {
+      "type": "datetime",
       "required": true,
-      "format": "HH:mm",
-      "description": "Heure de début (24h)"
-    },
-    "endTime": {
-      "type": "time",
-      "required": true,
-      "format": "HH:mm",
-      "description": "Heure de fin (24h)"
+      "format": "yyyy-MM-dd HH:mm:ss",
+      "description": "Date et heure de fin de l'événement"
     },
     "location": {
       "type": "string",
@@ -46,13 +40,20 @@
       "max_length": 200,
       "description": "Lieu de l'événement"
     },
-    "maxParticipants": {
+    "capacity": {
       "type": "integer",
       "required": false,
       "nullable": true,
-      "min_value": 1,
+      "min_value": 0,
       "max_value": 1000,
-      "description": "Nombre max de participants"
+      "description": "Capacité maximale de l'événement"
+    },
+    "imagesBase64": {
+      "type": "array",
+      "item_type": "string",
+      "required": false,
+      "nullable": true,
+      "description": "Images en base64 (optionnel)"
     },
     "hasParticipantLimit": {
       "type": "boolean",
@@ -88,12 +89,12 @@
       "format": "YYYY-MM-DD",
       "description": "Date de fin de récurrence"
     },
-    "targetResidences": {
+    "residenceIds": {
       "type": "array",
-      "item_type": "uuid",
+      "item_type": "string",
       "required": true,
       "min_items": 1,
-      "description": "Liste des résidences cibles"
+      "description": "Liste des IDs des résidences cibles"
     },
     "targetResidenceNames": {
       "type": "array",
@@ -104,14 +105,14 @@
     "status": {
       "type": "enum",
       "required": true,
-      "values": ["Brouillon", "Publié", "Programmé", "Archivé"],
+      "values": ["draft", "published"],
       "description": "Statut de publication"
     },
-    "publicationDate": {
+    "publishAt": {
       "type": "datetime",
       "required": true,
-      "format": "ISO8601",
-      "description": "Date de publication"
+      "format": "yyyy-MM-dd HH:mm:ss",
+      "description": "Date et heure de publication"
     },
     "publishLater": {
       "type": "boolean",

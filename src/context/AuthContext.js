@@ -58,16 +58,12 @@ function AuthProviderInternal({ children }) {
       }
       
       // Attendre que MSAL soit complètement initialisé
-      await instance.initialize();
-      console.log('✅ MSAL initialisé');
-      
+      await instance.initialize();      
       // Récupérer les comptes de manière sécurisée
       const allAccounts = instance.getAllAccounts();
-      console.log(`👥 Comptes MSAL trouvés: ${allAccounts?.length || 0}`);
       
       // Si aucun compte valide
       if (!allAccounts || allAccounts.length === 0) {
-        console.log('ℹ️ Aucun compte MSAL - État non authentifié');
         setAuthData({
           isAuthenticated: false,
           email: '',
@@ -86,10 +82,7 @@ function AuthProviderInternal({ children }) {
       const account = allAccounts[0];
       console.log(`👤 Utilisation du compte: ${account.username}`);
       
-      try {
-        // Tenter de récupérer un token silencieusement
-        console.log('🔄 Tentative de récupération silencieuse du token...');
-        
+      try {        
         const tokenRequest = {
           scopes: ['User.Read','GroupMember.Read.All'],
           account: account
@@ -97,16 +90,12 @@ function AuthProviderInternal({ children }) {
         
         const response = await instance.acquireTokenSilent(tokenRequest);
         
-        console.log('✅ Token récupéré silencieusement');
-        console.log('🎯 Access token disponible');
-        
         // Récupérer les résidences autorisées
         const userEmail = account.username;
         let userResidences = [];
         
         try {
           userResidences = await getAuthorizedResidencesForUser(userEmail);
-          console.log('🏠 Résidences autorisées:', userResidences);
         } catch (residenceError) {
           console.error('🚨 UTILISATEUR NON AUTORISÉ lors de l\'initialisation:', residenceError.message);
           
@@ -143,10 +132,6 @@ function AuthProviderInternal({ children }) {
           
           if (graphResponse.ok) {
             userInfo = await graphResponse.json();
-            console.log('📋 Infos Microsoft Graph récupérées');
-            console.log('👤 Utilisateur:', userInfo.displayName);
-            console.log('🏢 Département:', userInfo.department);
-            console.log('📍 Localisation:', userInfo.officeLocation);
           }
         } catch (graphError) {
           console.log('⚠️ Erreur Microsoft Graph (non bloquante):', graphError.message);
@@ -167,7 +152,6 @@ function AuthProviderInternal({ children }) {
           isLoading: false
         });
         
-        console.log(`✅ Session restaurée pour: ${account.username}`);
         
       } catch (tokenError) {
         console.log(`⚠️ Impossible de récupérer le token: ${tokenError.errorCode || tokenError.message}`);

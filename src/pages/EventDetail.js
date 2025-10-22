@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { Paper, Typography, Box, Chip, TextField, Button, Stack } from '@mui/material';
+import { Paper, Typography, Box, Chip, TextField, Button, Stack, Snackbar, Alert } from '@mui/material';
+import { Repeat } from '@mui/icons-material';
 import { DatePicker, TimePicker, DateTimePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { fr } from 'date-fns/locale';
 import BackButton from '../components/BackButton';
 import RichTextEditor from '../components/RichTextEditor';
+import ModalRepostForm from '../components/ModalRepostForm';
+import { useAuth } from '../hooks/useAuth';
+import { usePublications } from '../context/PublicationsContext';
+import { getStatusColor, canRepost, normalizeStatus } from '../utils/publicationStatus';
 
 // Données mockées (synchronisées avec Events.js)
 const mockEvents = [
@@ -106,9 +111,13 @@ const mockEvents = [
 export default function EventDetail() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
+  const { getPublicationById, updatePublication } = usePublications();
   const [event, setEvent] = useState(null);
   const [editedEvent, setEditedEvent] = useState({});
   const [isDirty, setIsDirty] = useState(false);
+  const [openRepostModal, setOpenRepostModal] = useState(false);
+  const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
 
   // Déterminer la page de retour en fonction du paramètre 'from'
   const fromPage = searchParams.get('from');
@@ -116,22 +125,73 @@ export default function EventDetail() {
   const backLabel = fromPage === 'calendar' ? 'Retour au calendrier' : 'Retour aux événements';
 
   useEffect(() => {
-    // Simule la récupération de l'événement par ID
-    const foundEvent = mockEvents.find(e => e.id === parseInt(id));
+    // Récupération de l'événement par ID depuis le contexte
+    const foundEvent = getPublicationById('events', id);
+    console.log('🔍 DEBUG EventDetail - Recherche événement ID:', id);
+    console.log('🔍 DEBUG EventDetail - Événement trouvé:', foundEvent);
+    
     if (foundEvent) {
       setEvent(foundEvent);
-      setEditedEvent({ 
-        title: foundEvent.title || '',
-        eventDate: new Date(foundEvent.eventDate),
-        startTime: new Date(`2000-01-01T${foundEvent.startTime}:00`),
-        endTime: new Date(`2000-01-01T${foundEvent.endTime}:00`),
-        location: foundEvent.location || '',
-        maxParticipants: foundEvent.maxParticipants || '',
-        description: foundEvent.description || '',
-        publicationDate: foundEvent.publicationDate || new Date().toISOString()
+      
+      // Adapter les champs selon la structure des données du contexte
+      const eventDate = foundEvent.eventDate || foundEvent.startDate || foundEvent.eventDateTimeStart;
+      
+      // Récupération intelligente des heures
+      let startTimeValue, endTimeValue;
+      
+      // Si on a des heures directes (format string "HH:mm")
+      if (foundEvent.startTime && foundEvent.endTime) {
+        startTimeValue = new Date(`2000-01-01T${foundEvent.startTime}:00`);
+        endTimeValue = new Date(`2000-01-01T${foundEvent.endTime}:00`);
+      }
+      // Si on a des dates complètes, extraire les heures
+      else if (foundEvent.startDate && foundEvent.endDate) {
+        startTimeValue = new Date(foundEvent.startDate);
+        endTimeValue = new Date(foundEvent.endDate);
+      }
+      else if (foundEvent.eventDateTimeStart && foundEvent.eventDateTimeEnd) {
+        startTimeValue = new Date(foundEvent.eventDateTimeStart);
+        endTimeValue = new Date(foundEvent.eventDateTimeEnd);
+      }
+      else if (foundEvent.eventDateRangeStart && foundEvent.eventDateRangeEnd) {
+        startTimeValue = new Date(foundEvent.eventDateRangeStart);
+        endTimeValue = new Date(foundEvent.eventDateRangeEnd);
+      }
+      // Valeurs par défaut
+      else {
+        startTimeValue = new Date(`2000-01-01T09:00:00`);
+        endTimeValue = new Date(`2000-01-01T10:00:00`);
+      }
+      
+      console.log('🕐 DEBUG EventDetail - Mapping des heures:', {
+        foundEvent: {
+          startTime: foundEvent.startTime,
+          endTime: foundEvent.endTime,
+          startDate: foundEvent.startDate,
+          endDate: foundEvent.endDate,
+          eventDateTimeStart: foundEvent.eventDateTimeStart,
+          eventDateTimeEnd: foundEvent.eventDateTimeEnd
+        },
+        computed: {
+          startTimeValue,
+          endTimeValue
+        }
       });
+      
+      setEditedEvent({
+        title: foundEvent.title || '',
+        description: foundEvent.description || foundEvent.message || '',
+        eventDate: eventDate ? new Date(eventDate) : new Date(),
+        startTime: startTimeValue,
+        endTime: endTimeValue,
+        location: foundEvent.location || '',
+        maxParticipants: foundEvent.maxParticipants || foundEvent.capacity || '',
+        publicationDate: foundEvent.publicationDate || foundEvent.createdAt || new Date().toISOString()
+      });
+    } else {
+      console.warn('⚠️ Événement non trouvé avec ID:', id);
     }
-  }, [id]);
+  }, [id, getPublicationById]);
 
   // Vérifie si des modifications ont été faites
   useEffect(() => {
@@ -157,31 +217,90 @@ export default function EventDetail() {
     }));
   };
 
-  const handleSave = () => {
-    console.log('Sauvegarde de l\'événement:', { 
-      ...event, 
-      ...editedEvent,
-      eventDate: editedEvent.eventDate.toISOString().split('T')[0],
-      startTime: editedEvent.startTime.toTimeString().slice(0, 5),
-      endTime: editedEvent.endTime.toTimeString().slice(0, 5)
-    });
-    
-    // Simule la sauvegarde
-    const updatedEvent = { 
-      ...event, 
-      title: editedEvent.title,
-      eventDate: editedEvent.eventDate.toISOString().split('T')[0],
-      startTime: editedEvent.startTime.toTimeString().slice(0, 5),
-      endTime: editedEvent.endTime.toTimeString().slice(0, 5),
-      location: editedEvent.location,
-      maxParticipants: editedEvent.maxParticipants,
-      description: editedEvent.description,
-      publicationDate: editedEvent.publicationDate
-    };
-    setEvent(updatedEvent);
-    setIsDirty(false);
-    
-    alert('Événement sauvegardé avec succès !');
+  const handleSave = async () => {
+    try {
+      // Construire les dates complètes à partir de eventDate + startTime/endTime
+      const eventDateStr = editedEvent.eventDate.toISOString().split('T')[0];
+      const startTimeStr = editedEvent.startTime.toTimeString().slice(0, 5);
+      const endTimeStr = editedEvent.endTime.toTimeString().slice(0, 5);
+      
+      const startDateTime = new Date(`${eventDateStr}T${startTimeStr}:00`);
+      const endDateTime = new Date(`${eventDateStr}T${endTimeStr}:00`);
+      
+      const updatedData = {
+        title: editedEvent.title,
+        description: editedEvent.description,
+        // Format legacy pour compatibilité affichage
+        eventDate: eventDateStr,
+        startTime: startTimeStr,
+        endTime: endTimeStr,
+        // Format harmonisé pour le formulaire
+        startDate: startDateTime.toISOString(),
+        endDate: endDateTime.toISOString(),
+        // Format daterange pour ModalPublicationForm
+        eventDateRangeStart: startDateTime.toISOString(),
+        eventDateRangeEnd: endDateTime.toISOString(),
+        location: editedEvent.location,
+        maxParticipants: editedEvent.maxParticipants,
+        publicationDate: editedEvent.publicationDate
+      };
+      
+      console.log('💾 DEBUG EventDetail - Sauvegarde événement:', {
+        original: event,
+        edited: editedEvent,
+        updatedData
+      });
+      
+      // Sauvegarde via le contexte
+      await updatePublication('events', event.id, updatedData);
+      
+      // Mettre à jour l'état local
+      const updatedEvent = { ...event, ...updatedData };
+      setEvent(updatedEvent);
+      setIsDirty(false);
+      
+      setNotification({
+        open: true,
+        message: 'Événement sauvegardé avec succès !',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('❌ Erreur lors de la sauvegarde:', error);
+      setNotification({
+        open: true,
+        message: 'Erreur lors de la sauvegarde de l\'événement',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleRepostClick = () => {
+    console.log('🔍 DEBUG EventDetail - Ouverture modal republication pour événement:', event);
+    setOpenRepostModal(true);
+  };
+
+  const handleSubmitRepost = async (payload) => {
+    try {
+      console.log('🔍 DEBUG EventDetail - Soumission republication événement:', payload);
+      
+      // TODO: Remplacer par l'appel API réel
+      // await repostPublication('event', payload);
+      
+      setNotification({
+        open: true,
+        message: `Événement "${event.title}" republié avec succès !`,
+        severity: 'success'
+      });
+      
+      setOpenRepostModal(false);
+    } catch (error) {
+      console.error('❌ Erreur lors de la republication de l\'événement:', error);
+      setNotification({
+        open: true,
+        message: error.message || 'Erreur lors de la republication de l\'événement',
+        severity: 'error'
+      });
+    }
   };
 
   if (!event) {
@@ -193,15 +312,7 @@ export default function EventDetail() {
     );
   }
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Publié': return 'success';
-      case 'Programmé': return 'info';
-      case 'Brouillon': return 'warning';
-      case 'Archivé': return 'default';
-      default: return 'default';
-    }
-  };
+  // Fonction getStatusColor supprimée - utilise maintenant l'utilitaire unifié
 
   return (
     <Box>
@@ -212,11 +323,22 @@ export default function EventDetail() {
           <Typography variant="h6" color="text.secondary">
             Édition de l'événement
           </Typography>
-          <Chip 
-            label={event.status} 
-            color={getStatusColor(event.status)}
-            variant="outlined"
-          />
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Button
+              variant="outlined"
+              startIcon={<Repeat />}
+              onClick={handleRepostClick}
+              disabled={!canRepost(event.status)}
+              size="small"
+            >
+              Republier (TEST)
+            </Button>
+            <Chip 
+              label={event.status} 
+              color={getStatusColor(event.status)}
+              variant="outlined"
+            />
+          </Stack>
         </Box>
 
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
@@ -342,6 +464,29 @@ export default function EventDetail() {
           )}
         </Stack>
       </Paper>
+
+      {/* Modal de republication */}
+      <ModalRepostForm
+        open={openRepostModal}
+        handleClose={() => setOpenRepostModal(false)}
+        onSubmit={handleSubmitRepost}
+        originalPost={event}
+      />
+
+      {/* Notifications */}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={() => setNotification({ ...notification, open: false })}
+      >
+        <Alert 
+          onClose={() => setNotification({ ...notification, open: false })} 
+          severity={notification.severity}
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 } 

@@ -5,8 +5,9 @@ import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
 import PageHeader from '../components/PageHeader';
 import { useAuth } from '../hooks/useAuth';
-
 import { useResidence } from '../context/ResidenceContext';
+import { usePublications } from '../context/PublicationsContext';
+import { getStandardColumns } from '../utils/publicationNormalizer';
 
 const mockDailyMessages = [
   { 
@@ -52,43 +53,46 @@ const mockDailyMessages = [
 ];
 
 export default function DailyMessages() {
-  const { ensureAuthenticated, authenticatedPost } = useAuth();
+  const { ensureAuthenticated, authorizedResidences } = useAuth();
   const { currentResidenceId, currentResidenceName } = useResidence();
+  const { getNormalizedPublications, addPublication, publishDraft, updatePublication, deletePublication } = usePublications();
   const [openModal, setOpenModal] = useState(false);
   const [editingMessage, setEditingMessage] = useState(null);
-  const [messages, setMessages] = useState(mockDailyMessages);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
 
 
-  const columns = [
-    { id: 'title', label: 'Titre', sortable: true, searchable: true },
-    { id: 'publicationDate', label: 'Date de publication', sortable: true, searchable: false },
-    { id: 'status', label: 'Statut', sortable: true, searchable: false },
-  ];
+  // Colonnes standardisées pour les messages du jour
+  const columns = getStandardColumns('dailyMessages');
 
-  const filteredMessages = messages.filter(message => message.residence_id === currentResidenceId);
+  // Récupération des messages normalisés
+  const messages = getNormalizedPublications('dailyMessages', currentResidenceId);
 
   const handleAddMessage = async (newMessage) => {
     try {
       ensureAuthenticated('créer un nouveau message');
       
-      console.log('✅ Utilisateur authentifié, création du message...');
+      // Validation de sécurité des résidences (même logique que les autres types)
+      const residenceIds = newMessage.residenceIds || newMessage.targetResidences || [];
+      if (!residenceIds || residenceIds.length === 0) {
+        throw new Error('Aucune résidence sélectionnée pour la publication');
+      }
+
+      const authorizedIds = authorizedResidences?.map(r => r.residenceId) || [];
+      const unauthorizedResidences = residenceIds.filter(id => !authorizedIds.includes(id));
       
-      const result = await authenticatedPost('/api/daily-messages', newMessage);
+      if (unauthorizedResidences.length > 0) {
+        console.error('🚨 SÉCURITÉ: Tentative de publication dans des résidences non autorisées:', unauthorizedResidences);
+        throw new Error('Vous n\'êtes pas autorisé à publier dans certaines résidences sélectionnées');
+      }
       
-      console.log('✅ Message créé avec succès:', result);
-      
-      const messageWithId = { 
-        ...newMessage, 
-        id: Date.now(), 
-        residence_id: currentResidenceId 
-      };
-      setMessages(prev => [...prev, messageWithId]);
+      // Utiliser le contexte unifié
+      await addPublication('dailyMessages', newMessage);
       
       setOpenModal(false);
+      const residenceCount = residenceIds.length;
       setNotification({
         open: true,
-        message: 'Message créé avec succès !',
+        message: `Message créé avec succès et publié dans ${residenceCount} résidence${residenceCount > 1 ? 's' : ''} !`,
         severity: 'success'
       });
       
@@ -158,20 +162,21 @@ export default function DailyMessages() {
           }
         ]}
         stats={[
-          { label: 'Messages actifs', value: filteredMessages.filter(m => m.status === 'Publié').length.toString() },
-          { label: 'Messages programmés', value: filteredMessages.filter(m => m.status === 'Programmé').length.toString() }
+          { label: 'Messages actifs', value: messages.filter(m => m.status === 'Publié').length.toString() },
+          { label: 'Messages programmés', value: messages.filter(m => m.status === 'Programmé').length.toString() }
         ]}
       />
 
       <DataTable 
         title="Messages du jour" 
-        data={filteredMessages} 
+        data={messages} 
         columns={columns} 
         onRowClick={handleRowClick}
         showActions={true}
+        onPublishDraft={(message) => publishDraft('dailyMessages', message.id)}
         onEditItem={handleEditMessage}
         onDeleteItem={(message) => { if(window.confirm(`Supprimer "${message.title}" ?`)) { 
-          setMessages(prev => prev.filter(m => m.id !== message.id)); 
+          deletePublication('dailyMessages', message.id); 
           setNotification({ open: true, message: 'Message supprimé avec succès !', severity: 'success' });
         }}}
       />
@@ -181,7 +186,7 @@ export default function DailyMessages() {
         handleClose={() => { setOpenModal(false); setEditingMessage(null); }}
         onSubmit={editingMessage ? 
           (data) => {
-            setMessages(prev => prev.map(m => m.id === editingMessage.id ? { ...m, ...data } : m));
+            updatePublication('dailyMessages', editingMessage.id, data);
             setOpenModal(false);
             setEditingMessage(null);
             setNotification({ open: true, message: 'Message mis à jour avec succès !', severity: 'success' });
@@ -192,18 +197,6 @@ export default function DailyMessages() {
         fields={[
           { name: 'title', label: 'Titre du message', type: 'text', required: true },
           { name: 'message', label: 'Message du jour', type: 'wysiwyg', required: true },
-          {
-            name: 'priority',
-            label: 'Priorité',
-            type: 'select',
-            required: true,
-            options: [
-              { value: 'low', label: 'Faible' },
-              { value: 'normal', label: 'Normale' },
-              { value: 'high', label: 'Élevée' },
-              { value: 'urgent', label: 'Urgente' }
-            ]
-          },
           { 
             name: 'publicationDate', 
             label: 'Date de publication', 

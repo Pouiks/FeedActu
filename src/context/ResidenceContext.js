@@ -17,7 +17,6 @@ export function ResidenceProvider({ children }) {
         const firstResidence = authorizedResidences[0];
         setCurrentResidenceId(firstResidence.residenceId);
         setCurrentResidenceName(firstResidence.residenceName);
-        console.log('🏠 Auto-sélection de la première résidence:', firstResidence.residenceName);
       } else {
         // Vérifier que la résidence actuelle est toujours dans la liste
         const currentResidence = authorizedResidences.find(r => r.residenceId === currentResidenceId);

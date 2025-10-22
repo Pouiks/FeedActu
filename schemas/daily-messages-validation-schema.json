@@ -8,26 +8,24 @@
       "auto_generated": true,
       "description": "Identifiant unique"
     },
-    "message": {
+    "messageHtml": {
       "type": "text",
       "format": "html",
       "required": true,
       "max_length": 2000,
       "description": "Contenu du message (HTML WYSIWYG)"
     },
-    "priority": {
-      "type": "enum",
+    "priorityId": {
+      "type": "string",
       "required": true,
-      "values": ["low", "normal", "high", "urgent"],
-      "default": "normal",
-      "description": "Priorité du message"
+      "description": "ID de la priorité du message"
     },
-    "targetResidences": {
+    "residenceIds": {
       "type": "array",
-      "item_type": "uuid",
+      "item_type": "string",
       "required": true,
       "min_items": 1,
-      "description": "Liste des résidences cibles"
+      "description": "Liste des IDs des résidences cibles"
     },
     "targetResidenceNames": {
       "type": "array",
@@ -38,14 +36,14 @@
     "status": {
       "type": "enum",
       "required": true,
-      "values": ["Brouillon", "Publié", "Programmé", "Archivé"],
+      "values": ["draft", "published"],
       "description": "Statut de publication"
     },
-    "publicationDate": {
+    "publishAt": {
       "type": "datetime",
       "required": true,
-      "format": "ISO8601",
-      "description": "Date de publication"
+      "format": "yyyy-MM-dd HH:mm:ss",
+      "description": "Date et heure de publication"
     },
     "publishLater": {
       "type": "boolean",

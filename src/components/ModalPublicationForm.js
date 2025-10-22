@@ -11,7 +11,9 @@ import RichTextEditor from './RichTextEditor';
 import ResidenceTagSelector from './ResidenceTagSelector';
 import MobilePreview from './MobilePreview';
 import { useAuth } from '../hooks/useAuth';
+import { useResidence } from '../context/ResidenceContext';
 import { PublicationLogger } from '../utils/publicationLogger';
+import { normalizeStatus, statusToEnglish } from '../utils/publicationStatus';
 import { useErrorHandler } from '../utils/errorHandler';
 
 const style = {
@@ -29,6 +31,94 @@ const style = {
   borderRadius: 2
 };
 
+// Fonction pour construire le payload selon le contrat d'interface
+const buildContractPayload = (entityName, context) => {
+  const { 
+    formData, 
+    pollAnswers, 
+    finalSecureResidences, 
+    status
+  } = context;
+
+  // Format datetime pour le contrat : yyyy-MM-dd HH:mm:ss
+  const formatDateTime = (date) => {
+    if (!date) return undefined;
+    const d = new Date(date);
+    return d.toISOString().slice(0, 19).replace('T', ' ');
+  };
+
+  // Champs communs à tous les types selon le nouveau contrat
+  const basePayload = {
+    residenceIds: finalSecureResidences,
+    status: statusToEnglish(normalizeStatus(status))
+  };
+
+  // Note: processImageField supprimé car non utilisé dans le nouveau contrat
+
+  // Construction spécifique par type selon le nouveau contrat d'API
+  switch (entityName.toLowerCase()) {
+    case 'post':
+      return {
+        ...basePayload,
+        title: formData.title || '',
+        messageHtml: formData.message || '',
+        categoryId: formData.categoryId || 'CAT-001',
+        imagesBase64: formData.imagesBase64 || [],
+        publishAt: formatDateTime(formData.publishAt || new Date())
+      };
+
+    case 'sondage':
+      return {
+        ...basePayload,
+        question: formData.question || '',
+        options: pollAnswers?.filter(answer => answer.trim() !== '') || [],
+        allowMultiple: formData.allowMultiple || false,
+        answerDeadline: formData.answerDeadline ? formatDateTime(formData.answerDeadline) : undefined,
+        imagesBase64: formData.imagesBase64 || [],
+        publishAt: formatDateTime(formData.publishAt || new Date())
+      };
+
+    case 'événement':
+      return {
+        ...basePayload,
+        title: formData.title || '',
+        descriptionHtml: formData.description || '',
+        startAt: formatDateTime(formData.startAt),
+        endAt: formatDateTime(formData.endAt),
+        location: formData.location || '',
+        capacity: formData.capacity ? parseInt(formData.capacity) : 0,
+        imagesBase64: formData.imagesBase64 || [],
+        publishAt: formatDateTime(formData.publishAt || new Date())
+      };
+
+    case 'message du jour':
+      return {
+        ...basePayload,
+        title: formData.title || '',
+        messageHtml: formData.message || '',
+        priorityId: formData.priorityId || 'PRIO-001',
+        publishAt: formatDateTime(formData.publishAt || new Date())
+      };
+
+    case 'alerte':
+      return {
+        ...basePayload,
+        title: formData.title || '',
+        messageHtml: formData.message || '',
+        alertTypeId: formData.alertTypeId || 'ALERT-TYPE-001',
+        priorityId: formData.priorityId || 'PRIO-001',
+        publishAt: formatDateTime(formData.publishAt || new Date())
+      };
+
+    default:
+      // Fallback : garder la structure actuelle
+      return {
+        ...basePayload,
+        ...formData
+      };
+  }
+};
+
 export default function ModalPublicationForm({ 
   open = false, 
   handleClose = () => {}, 
@@ -39,7 +129,8 @@ export default function ModalPublicationForm({
   isEditing = false // NOUVEAU : Mode édition
 }) {
   const { authorizedResidences, user } = useAuth();
-  const { executeWithErrorHandling, getUserFriendlyMessage } = useErrorHandler();
+  const { currentResidenceId } = useResidence();
+  // useErrorHandler supprimé car non utilisé dans cette version
   const [formData, setFormData] = useState({});
   const [pollAnswers, setPollAnswers] = useState(['']);
   const [publishLater, setPublishLater] = useState(false);
@@ -49,8 +140,7 @@ export default function ModalPublicationForm({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isFirstOpen = useRef(true);
-  const [startPickerOpen, setStartPickerOpen] = useState(false);
-  const [endPickerOpen, setEndPickerOpen] = useState(false);
+  // États des DatePickers supprimés - laissons les composants gérer leur état naturellement
 
   // Modifier le titre du modal selon le mode
   const modalTitle = isEditing 
@@ -172,9 +262,13 @@ export default function ModalPublicationForm({
               }
             });
           } else {
-            // Auto-sélection de la résidence unique si applicable (mode création uniquement)
+            // Auto-sélection intelligente des résidences (mode création uniquement)
             if (authorizedResidences?.length === 1) {
               setSelectedResidences([authorizedResidences[0].residenceId]);
+            } else if (currentResidenceId && authorizedResidences?.some(r => r.residenceId === currentResidenceId)) {
+              // Pré-sélectionner la résidence active si elle est autorisée
+              setSelectedResidences([currentResidenceId]);
+              console.log('🏠 DEBUG - Pré-sélection résidence active:', currentResidenceId);
             } else {
               setSelectedResidences([]);
             }
@@ -187,7 +281,7 @@ export default function ModalPublicationForm({
       // Reset quand le modal se ferme pour la prochaine ouverture
       isFirstOpen.current = true;
     }
-  }, [open, authorizedResidences, entityName, user]);
+  }, [open, authorizedResidences, entityName, user, currentResidenceId, fields, formData, initialValues, isEditing]);
 
   const handleChange = (fieldName, value) => {
     const updatedData = { ...formData, [fieldName]: value };
@@ -347,40 +441,41 @@ export default function ModalPublicationForm({
         return;
       }
 
-      const finalPublicationDate = publishLater ? publishDateTime.toISOString() : new Date().toISOString();
+      // Utiliser la date de publication du formulaire si disponible, sinon la date actuelle
+      const finalPublicationDate = publishLater 
+        ? publishDateTime.toISOString() 
+        : (formData.publicationDate ? new Date(formData.publicationDate).toISOString() : new Date().toISOString());
 
-      // Construire les données complètes avec TOUS les champs
-      const newItem = {
-        ...formData,
-        ...(fields.some(f => f.type === 'pollAnswers') && { 
-          answers: pollAnswers.filter(answer => answer.trim() !== '') 
-        }),
-        
-        // 📅 HARMONISATION : Convertir les champs daterange vers le format standard
-        ...(formData.eventDateTimeStart && formData.eventDateTimeEnd && {
-          startDate: formData.eventDateTimeStart,
-          endDate: formData.eventDateTimeEnd,
-          // Pour compatibilité avec DataTable et affichage
-          eventDate: new Date(formData.eventDateTimeStart).toLocaleDateString('fr-FR')
-        }),
-        
-        // 📅 Logique publishLater (INCHANGÉE - fonctionne déjà partout)
-        publishLater: publishLater,
-        publicationDate: finalPublicationDate,
-        publishDateTime: publishLater ? publishDateTime.toISOString() : '',
-        
-        targetResidences: finalSecureResidences,
-        targetResidenceNames: finalSecureResidences.map(id => {
-          const residence = authorizedResidences?.find(r => r.residenceId === id);
-          return residence ? residence.residenceName : `Résidence ${id}`;
-        }),
+      console.log('📅 DEBUG - Gestion dates publication:', {
+        publishLater,
+        publishDateTime,
+        formDataPublicationDate: formData.publicationDate,
+        finalPublicationDate
+      });
+
+      // Note: baseItem supprimé car non utilisé dans le nouveau contrat
+
+      // 🔧 NORMALISATION selon le contrat d'interface
+      const contractPayload = buildContractPayload(entityName, {
+        formData,
+        fields,
+        pollAnswers,
+        publishLater,
+        publishDateTime,
+        finalSecureResidences,
+        authorizedResidences,
         status,
-        createdAt: new Date().toISOString(),
-        createdBy: user?.userId || user?.email || 'current-user'
-      };
+        user
+      });
+
+      const newItem = contractPayload;
+
+      // LOG SIMPLE demandé: tracer la tentative de publication/brouillon avec toutes les données
+      const actionLabel = status === 'Publié' ? 'publish' : 'draft';
+      const publicationType = entityName.toLowerCase();
+      console.log('publication_submit', { type: publicationType, action: actionLabel, status, payload: newItem });
 
       // 📋 Log de préparation avec TOUS les champs
-      const publicationType = entityName.toLowerCase();
       const userContext = { user, authorizedResidences };
       PublicationLogger.logPublication(publicationType, newItem, 'PREPARING', userContext);
 
@@ -500,7 +595,7 @@ export default function ModalPublicationForm({
             variant="contained"
             color="primary"
             onClick={() => handleSave('Publié')}
-            disabled={publishLater && !isDateValid() || isSubmitting}
+            disabled={(publishLater && !isDateValid()) || isSubmitting}
           >
             {isSubmitting ? 'Publication en cours...' : 'Publier'}
           </Button>
@@ -529,7 +624,7 @@ export default function ModalPublicationForm({
           variant="contained"
           color="primary"
           onClick={() => handleSave('Publié')}
-          disabled={publishLater && !isDateValid() || isSubmitting}
+          disabled={(publishLater && !isDateValid()) || isSubmitting}
         >
           {isSubmitting ? 'Publication en cours...' : `Publier${selectedResidences.length > 1 ? ` dans ${selectedResidences.length} résidences` : ''}`}
         </Button>
@@ -855,19 +950,11 @@ export default function ModalPublicationForm({
                       handleChange(`${field.name}End`, endTime);
                     }
                   }}
-                  open={startPickerOpen}
-                  onOpen={() => setStartPickerOpen(true)}
-                  onClose={() => setStartPickerOpen(false)}
                   slotProps={{ 
                     textField: { 
                       required: field.required,
                       error: !!errors[field.name],
-                      fullWidth: true,
-                      onClick: () => setStartPickerOpen(true),
-                      InputProps: {
-                        readOnly: true,
-                        sx: { cursor: 'pointer' }
-                      }
+                      fullWidth: true
                     }
                   }}
                   ampm={false}
@@ -885,19 +972,11 @@ export default function ModalPublicationForm({
                     return defaultEnd;
                   })()}
                   onChange={(newValue) => handleChange(`${field.name}End`, newValue)}
-                  open={endPickerOpen}
-                  onOpen={() => setEndPickerOpen(true)}
-                  onClose={() => setEndPickerOpen(false)}
-                  slotProps={{ 
+                  slotProps={{
                     textField: { 
                       required: field.required,
                       error: !!errors[field.name],
-                      fullWidth: true,
-                      onClick: () => setEndPickerOpen(true),
-                      InputProps: {
-                        readOnly: true,
-                        sx: { cursor: 'pointer' }
-                      }
+                      fullWidth: true
                     }
                   }}
                   ampm={false}

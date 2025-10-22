@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Paper, Typography, Box, Chip, TextField, Button, Stack, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { Paper, Typography, Box, Chip, TextField, Button, Stack, FormControl, InputLabel, Select, MenuItem, Snackbar, Alert } from '@mui/material';
 import { DateTimePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { fr } from 'date-fns/locale';
+import { Repeat } from '@mui/icons-material';
 import BackButton from '../components/BackButton';
 import RichTextEditor from '../components/RichTextEditor';
+import ModalRepostForm from '../components/ModalRepostForm';
 import { usePublications } from '../context/PublicationsContext';
+import { useAuth } from '../hooks/useAuth';
+import { getStatusColor, canRepost, normalizeStatus } from '../utils/publicationStatus';
 
 // Données mockées (synchronisées avec Posts.js)
 const mockPosts = [
@@ -76,9 +80,12 @@ const mockPosts = [
 export default function PostDetail() {
   const { id } = useParams();
   const { getPublicationById, updatePublication } = usePublications();
+  const { ensureAuthenticated } = useAuth();
   const [post, setPost] = useState(null);
   const [editedPost, setEditedPost] = useState({});
   const [isDirty, setIsDirty] = useState(false);
+  const [openRepostModal, setOpenRepostModal] = useState(false);
+  const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
 
   useEffect(() => {
     // Récupération via le contexte
@@ -133,6 +140,46 @@ export default function PostDetail() {
     }
   };
 
+  // NOUVEAU : Handlers pour la republication
+  const handleRepostClick = () => {
+    try {
+      ensureAuthenticated('republier ce post');
+      setOpenRepostModal(true);
+    } catch (error) {
+      setNotification({
+        open: true,
+        message: 'Vous devez être connecté pour republier ce post',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleSubmitRepost = async (repostData) => {
+    try {
+      console.log('🔄 Soumission de republication depuis PostDetail:', repostData);
+      
+      setNotification({
+        open: true,
+        message: `Post republié avec succès dans ${repostData.residenceIds.length} résidence${repostData.residenceIds.length > 1 ? 's' : ''} !`,
+        severity: 'success'
+      });
+      
+      setOpenRepostModal(false);
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la republication:', error);
+      setNotification({
+        open: true,
+        message: error.message || 'Erreur lors de la republication',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleCloseNotification = () => {
+    setNotification({ ...notification, open: false });
+  };
+
   if (!post) {
     return (
       <Box>
@@ -142,14 +189,7 @@ export default function PostDetail() {
     );
   }
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Publié': return 'success';
-      case 'Brouillon': return 'warning';
-      case 'Archivé': return 'default';
-      default: return 'default';
-    }
-  };
+  // Fonction getStatusColor supprimée - utilise maintenant l'utilitaire unifié
 
   return (
     <Box>
@@ -160,11 +200,26 @@ export default function PostDetail() {
           <Typography variant="h6" color="text.secondary">
             Édition du post
           </Typography>
-          <Chip 
-            label={post.status} 
-            color={getStatusColor(post.status)}
-            variant="outlined"
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {/* DEBUG: Afficher le statut pour vérifier */}
+            {console.log('🔍 DEBUG - Post status:', post.status, 'Type:', typeof post.status)}
+            {/* TEMP: Toujours afficher pour tester */}
+            <Button
+              variant="outlined"
+              startIcon={<Repeat />}
+              onClick={handleRepostClick}
+              disabled={!canRepost(post.status)}
+              size="small"
+              color="primary"
+            >
+              Republier (TEST)
+            </Button>
+            <Chip 
+              label={post.status} 
+              color={getStatusColor(post.status)}
+              variant="outlined"
+            />
+          </Box>
         </Box>
 
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
@@ -270,6 +325,30 @@ export default function PostDetail() {
           )}
         </Stack>
       </Paper>
+
+      {/* Modal de republication */}
+      <ModalRepostForm
+        open={openRepostModal}
+        handleClose={() => setOpenRepostModal(false)}
+        onSubmit={handleSubmitRepost}
+        originalPost={post}
+      />
+
+      {/* Notifications */}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={handleCloseNotification} 
+          severity={notification.severity}
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 } 

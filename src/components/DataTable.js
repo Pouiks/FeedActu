@@ -88,6 +88,7 @@ export default function DataTable({
     handleActionsClose();
   };
 
+
   // Ajouter la colonne Actions si nécessaire
   const effectiveColumns = useMemo(() => {
     if (!showActions) return columns;
@@ -274,11 +275,24 @@ export default function DataTable({
 
     // Formatage des catégories avec couleurs
     if (column.id === 'category') {
+      console.log('🏷️ DEBUG DataTable - Category:', {
+        columnId: column.id,
+        value,
+        item: item.title || 'Sans titre',
+        itemType: item.type
+      });
+      
+      if (!value) {
+        return '-';
+      }
+      
       const getCategoryColor = (category) => {
         switch (category) {
           case 'info': return 'info';
           case 'event': return 'primary';
           case 'urgent': return 'error';
+          case 'maintenance': return 'warning';
+          case 'community': return 'success';
           default: return 'default';
         }
       };
@@ -288,6 +302,8 @@ export default function DataTable({
           case 'info': return 'Information';
           case 'event': return 'Événement';
           case 'urgent': return 'Urgent';
+          case 'maintenance': return 'Maintenance';
+          case 'community': return 'Vie communautaire';
           default: return category;
         }
       };
@@ -302,23 +318,88 @@ export default function DataTable({
       );
     }
 
-    // Formatage des dates
-    if (column.id.includes('Date') && column.id !== 'eventDate') {
+    // Formatage des dates - priorité à displayDate (format normalisé)
+    if (column.id === 'displayDate') {
+      if (!value) {
+        return '-';
+      }
+      
       try {
         const date = new Date(value);
+        if (isNaN(date.getTime())) {
+          console.warn('⚠️ Date invalide pour displayDate:', value);
+          return '-';
+        }
         return format(date, 'dd/MM/yyyy à HH:mm', { locale: fr });
-      } catch {
-        return value;
+      } catch (error) {
+        console.warn('⚠️ Erreur formatage displayDate:', error, value);
+        return '-';
       }
     }
 
-    // Formatage de la date d'événement (sans heure)
-    if (column.id === 'eventDate') {
+    // Formatage des autres dates (fallback pour compatibilité)
+    if (column.id.includes('Date') && column.id !== 'eventDate' && column.id !== 'displayDate') {
+      if (!value) {
+        return '-';
+      }
+      
       try {
         const date = new Date(value);
+        if (isNaN(date.getTime())) {
+          console.warn('⚠️ Date invalide:', value);
+          return '-';
+        }
+        return format(date, 'dd/MM/yyyy à HH:mm', { locale: fr });
+      } catch (error) {
+        console.warn('⚠️ Erreur formatage date:', error, value);
+        return value || '-';
+      }
+    }
+
+    // Formatage de la date d'événement avec heure si disponible
+    if (column.id === 'eventDate') {
+      // Si pas de eventDate, essayer de construire à partir des autres champs
+      if (!value || value === '-') {
+        // Essayer startDate
+        if (item.startDate) {
+          try {
+            const date = new Date(item.startDate);
+            return format(date, 'dd/MM/yyyy à HH:mm', { locale: fr });
+          } catch {
+            return '-';
+          }
+        }
+        // Essayer eventDateTimeStart
+        if (item.eventDateTimeStart) {
+          try {
+            const date = new Date(item.eventDateTimeStart);
+            return format(date, 'dd/MM/yyyy à HH:mm', { locale: fr });
+          } catch {
+            return '-';
+          }
+        }
+        // Essayer eventDateRangeStart
+        if (item.eventDateRangeStart) {
+          try {
+            const date = new Date(item.eventDateRangeStart);
+            return format(date, 'dd/MM/yyyy à HH:mm', { locale: fr });
+          } catch {
+            return '-';
+          }
+        }
+        return '-';
+      }
+      
+      try {
+        // Si eventDate existe, l'utiliser avec l'heure si disponible
+        const date = new Date(value);
+        // Ajouter l'heure si startTime est disponible
+        if (item.startTime) {
+          return `${format(date, 'dd/MM/yyyy', { locale: fr })} à ${item.startTime}`;
+        }
         return format(date, 'dd/MM/yyyy', { locale: fr });
       } catch {
-        return value;
+        return value || '-';
       }
     }
 

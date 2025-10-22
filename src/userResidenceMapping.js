@@ -33,7 +33,6 @@ export const userResidenceMapping = {
     'm.flaujac@uxco-management.com': [
       { residenceId: 'ff5544a8-4fa7-ef11-b8e9-6045bd19a503', residenceName: 'ALBERT THOMAS' }
     ],
-
     'p.villarosa@uxco-management.com': [
       { residenceId: '045644a8-4fa7-ef11-b8e9-6045bd19a503', residenceName: 'ANDROMAQUE' }
     ],

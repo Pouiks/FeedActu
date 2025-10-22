@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { normalizeList } from '../utils/publicationNormalizer';
 
 const PublicationsContext = createContext();
 
@@ -12,9 +13,25 @@ function publicationsReducer(state, action) {
         id: data.id || Date.now(), // ID unique simple
         createdAt: data.createdAt || new Date().toISOString(),
         publicationDate: data.publicationDate || new Date().toISOString(),
+        // Harmonisation : ajouter targetResidences pour compatibilité avec l'affichage
+        targetResidences: data.targetResidences || data.residenceIds || [],
+        // Ajouter les noms des résidences si disponibles
+        targetResidenceNames: data.targetResidenceNames || [],
         _isLocal: !data.id // Marqueur interne invisible
       };
       
+      console.log(`🔄 DEBUG Reducer - ADD_PUBLICATION:`, {
+        type,
+        publicationId: publication.id,
+        beforeCount: state[type]?.length || 0,
+        afterCount: (state[type]?.length || 0) + 1,
+        publication: {
+          id: publication.id,
+          title: publication.title || publication.question || 'Sans titre',
+          residenceIds: publication.residenceIds,
+          targetResidences: publication.targetResidences
+        }
+      });
 
       
       return {
@@ -57,9 +74,9 @@ function publicationsReducer(state, action) {
 const initialState = {
   posts: [],
   events: [],
-  polls: [],
+  surveys: [], // Renommé de polls vers surveys
   alerts: [],
-  dailyMessages: []
+  dailyAdvices: [] // Renommé de dailyMessages vers dailyAdvices
 };
 
 export function PublicationsProvider({ children }) {
@@ -79,13 +96,6 @@ export function PublicationsProvider({ children }) {
   useEffect(() => {
     localStorage.setItem('user_publications', JSON.stringify(state));
   }, [state]);
-
-  // Synchronisation en arrière-plan (invisible)
-  useEffect(() => {
-    if (isAuthenticated && navigator.onLine) {
-      syncWithServerQuietly();
-    }
-  }, [isAuthenticated]);
 
   const syncWithServerQuietly = async () => {
     // Synchronisation silencieuse en arrière-plan
@@ -122,11 +132,25 @@ export function PublicationsProvider({ children }) {
     }
   };
 
+  // Synchronisation en arrière-plan (invisible)
+  useEffect(() => {
+    if (isAuthenticated && navigator.onLine) {
+      syncWithServerQuietly();
+    }
+  }, [isAuthenticated]);
+
   // API simple pour l'utilisateur métier
   const createPublication = async (type, data) => {
     // Générer un ID temporaire unique
     const tempId = data.id || Date.now();
     const publicationData = { ...data, id: tempId };
+    
+    console.log(`🔄 DEBUG PublicationsContext - Création ${type}:`, {
+      type,
+      tempId,
+      publicationData,
+      stateBefore: state[type]?.length || 0
+    });
     
     // 1. Ajout immédiat - L'utilisateur voit sa publication instantanément
     dispatch({
@@ -139,7 +163,9 @@ export function PublicationsProvider({ children }) {
     // 2. Tentative de synchronisation en arrière-plan (invisible)
     if (navigator.onLine && isAuthenticated) {
       try {
-        await authenticatedPost(`/api/${type}`, publicationData);
+        // Nouveau format : envoi en array selon le contrat d'API
+        const apiPayload = [publicationData];
+        await authenticatedPost(`/api/${type}`, apiPayload);
         // Succès serveur - marquer silencieusement
         dispatch({
           type: 'UPDATE_PUBLICATION',
@@ -167,7 +193,9 @@ export function PublicationsProvider({ children }) {
     // Synchronisation serveur en arrière-plan
     if (navigator.onLine && isAuthenticated) {
       try {
-        await authenticatedPost(`/api/${type}/${id}`, updates);
+        // Nouveau format : envoi en array selon le contrat d'API
+        const apiPayload = [updates];
+        await authenticatedPost(`/api/${type}/${id}`, apiPayload);
       } catch (error) {
         // Échec silencieux
         console.log(`Update ${type} différée:`, error.message);
@@ -227,10 +255,34 @@ export function PublicationsProvider({ children }) {
   const getPublications = (type, residenceId = null) => {
     let publications = state[type] || [];
     
+    console.log(`🔍 DEBUG getPublications - ${type}:`, {
+      residenceId,
+      totalCount: publications.length,
+      publications: publications.map(p => ({
+        id: p.id,
+        title: p.title || p.question || 'Sans titre',
+        residenceIds: p.residenceIds,
+        targetResidences: p.targetResidences
+      }))
+    });
+    
     if (residenceId) {
-      publications = publications.filter(pub =>
-        pub.targetResidences && pub.targetResidences.includes(residenceId)
-      );
+      publications = publications.filter(pub => {
+        // Support des deux formats : residenceIds (nouveau) et targetResidences (legacy)
+        const hasNewFormat = pub.residenceIds && pub.residenceIds.includes(residenceId);
+        const hasLegacyFormat = pub.targetResidences && pub.targetResidences.includes(residenceId);
+        const hasDirectMatch = pub.residence_id === residenceId;
+        
+        return hasNewFormat || hasLegacyFormat || hasDirectMatch;
+      });
+      
+      console.log(`🔍 DEBUG getPublications - Après filtrage ${type}:`, {
+        filteredCount: publications.length,
+        filtered: publications.map(p => ({
+          id: p.id,
+          title: p.title || p.question || 'Sans titre'
+        }))
+      });
     }
     
     return publications.sort((a, b) => 
@@ -243,6 +295,21 @@ export function PublicationsProvider({ children }) {
     return publications.find(pub => pub.id === parseInt(id) || pub.id === id);
   };
 
+  // NOUVELLE MÉTHODE : Récupération normalisée pour l'affichage unifié
+  const getNormalizedPublications = (type, residenceId = null) => {
+    const rawPublications = getPublications(type, residenceId);
+    const normalized = normalizeList(type, rawPublications);
+    
+    console.log(`📋 DEBUG getNormalizedPublications - ${type}:`, {
+      residenceId,
+      rawCount: rawPublications.length,
+      normalizedCount: normalized.length,
+      sample: normalized[0] || 'Aucune publication'
+    });
+    
+    return normalized;
+  };
+
   const value = {
     createPublication,
     addPublication: createPublication, // Alias pour compatibilité
@@ -251,13 +318,14 @@ export function PublicationsProvider({ children }) {
     publishDraft, // NOUVEAU : Publier un brouillon
     getPublications,
     getPublicationById,
+    getNormalizedPublications, // NOUVEAU : Récupération normalisée
     // Statistiques pour les dashboards
     getStats: () => ({
       posts: state.posts.length,
       events: state.events.length,
-      polls: state.polls.length,
+      surveys: state.surveys.length,
       alerts: state.alerts.length,
-      dailyMessages: state.dailyMessages.length,
+      dailyAdvices: state.dailyAdvices.length,
       total: Object.values(state).reduce((acc, items) => acc + items.length, 0)
     })
   };

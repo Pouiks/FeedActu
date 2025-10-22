@@ -5,9 +5,9 @@ import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
 import PageHeader from '../components/PageHeader';
 import { useAuth } from '../hooks/useAuth';
-
 import { useResidence } from '../context/ResidenceContext';
 import { usePublications } from '../context/PublicationsContext';
+import { getStandardColumns } from '../utils/publicationNormalizer';
 
 const mockAlerts = [
   { 
@@ -85,34 +85,45 @@ const mockAlerts = [
 ];
 
 export default function Alerts() {
-  const { ensureAuthenticated, authenticatedPost } = useAuth();
+  const { ensureAuthenticated, authorizedResidences } = useAuth();
   const { currentResidenceId, currentResidenceName } = useResidence();
-  const { getPublications, addPublication, publishDraft, updatePublication, deletePublication } = usePublications();
+  const { getNormalizedPublications, addPublication, publishDraft, updatePublication, deletePublication } = usePublications();
   const [openModal, setOpenModal] = useState(false);
   const [editingAlert, setEditingAlert] = useState(null);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
 
 
-  const columns = [
-    { id: 'title', label: 'Titre', sortable: true, searchable: true },
-    { id: 'priority', label: 'Priorité', sortable: true, searchable: false },
-    { id: 'category', label: 'Catégorie', sortable: true, searchable: false },
-    { id: 'publicationDate', label: 'Date de publication', sortable: true, searchable: false },
-    { id: 'status', label: 'Statut', sortable: true, searchable: false },
-  ];
+  // Colonnes standardisées pour les alertes
+  const columns = getStandardColumns('alerts');
 
-  const alerts = getPublications('alerts', currentResidenceId);
+  // Récupération des alertes normalisées
+  const alerts = getNormalizedPublications('alerts', currentResidenceId);
 
   const handleAddAlert = async (newAlert) => {
     try {
       ensureAuthenticated('créer une nouvelle alerte');
       
+      // Validation de sécurité des résidences (même logique que les autres types)
+      const residenceIds = newAlert.residenceIds || newAlert.targetResidences || [];
+      if (!residenceIds || residenceIds.length === 0) {
+        throw new Error('Aucune résidence sélectionnée pour la publication');
+      }
+
+      const authorizedIds = authorizedResidences?.map(r => r.residenceId) || [];
+      const unauthorizedResidences = residenceIds.filter(id => !authorizedIds.includes(id));
+      
+      if (unauthorizedResidences.length > 0) {
+        console.error('🚨 SÉCURITÉ: Tentative de publication dans des résidences non autorisées:', unauthorizedResidences);
+        throw new Error('Vous n\'êtes pas autorisé à publier dans certaines résidences sélectionnées');
+      }
+      
       await addPublication('alerts', newAlert);
       
       setOpenModal(false);
+      const residenceCount = residenceIds.length;
       setNotification({
         open: true,
-        message: 'Alerte créée avec succès !',
+        message: `Alerte créée avec succès et publiée dans ${residenceCount} résidence${residenceCount > 1 ? 's' : ''} !`,
         severity: 'success'
       });
       
@@ -212,6 +223,7 @@ export default function Alerts() {
         }
         entityName="Alerte"
         fields={[
+          { name: 'title', label: 'Titre de l\'alerte', type: 'text', required: true },
           { name: 'message', label: 'Message de l\'alerte', type: 'wysiwyg', required: true },
           {
             name: 'type',

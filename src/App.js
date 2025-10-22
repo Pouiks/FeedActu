@@ -25,7 +25,6 @@ function App() {
 
   // Wrapper pour protéger les routes avec middleware de vérification
   const ProtectedRoute = ({ children }) => {
-    console.log('🛡️ ProtectedRoute - isLoading:', isLoading, 'isAuthenticated:', isAuthenticated);
     
     // Pendant le chargement, afficher un loader
     if (isLoading) {
@@ -51,12 +50,9 @@ function App() {
       console.log('🚫 Utilisateur non authentifié, redirection vers /login');
       return <Navigate to="/login" replace />;
     }
-    
-    console.log('✅ Utilisateur authentifié, affichage du contenu protégé');
-    return children;
+        return children;
   };
 
-  console.log('🔄 App render - isLoading:', isLoading, 'isAuthenticated:', isAuthenticated);
 
   return (
     <PublicationsProvider>

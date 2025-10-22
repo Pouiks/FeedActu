@@ -1,33 +1,30 @@
 import React, { useState } from 'react';
 import { Alert, Snackbar } from '@mui/material';
 import { Add } from '@mui/icons-material';
-
+import { useNavigate } from 'react-router-dom';
 import DataTable from '../components/DataTable';
 import ModalPublicationForm from '../components/ModalPublicationForm';
 import PageHeader from '../components/PageHeader';
 import { useAuth } from '../hooks/useAuth';
 import { useResidence } from '../context/ResidenceContext';
 import { usePublications } from '../context/PublicationsContext';
+import { getStandardColumns } from '../utils/publicationNormalizer';
 
 export default function Events() {
   const { ensureAuthenticated, authorizedResidences } = useAuth();
-  const { currentResidenceName } = useResidence();
-  const { getPublications, addPublication, publishDraft, updatePublication, deletePublication } = usePublications();
+  const { currentResidenceId, currentResidenceName } = useResidence();
+  const { getNormalizedPublications, addPublication, publishDraft, updatePublication, deletePublication } = usePublications();
+  const navigate = useNavigate();
 
   const [openModal, setOpenModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null); // NOUVEAU : Pour l'édition
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
 
-  const columns = [
-    { id: 'title', label: 'Titre', sortable: true, searchable: true },
-    { id: 'eventDate', label: 'Date de l\'événement', sortable: true, searchable: false },
-    { id: 'targetResidenceNames', label: 'Résidences', sortable: false, searchable: false },
-    { id: 'location', label: 'Lieu', sortable: false, searchable: true },
-    { id: 'status', label: 'Statut', sortable: true, searchable: false },
-  ];
+  // Colonnes standardisées pour les événements
+  const columns = getStandardColumns('events');
 
-  // Récupération des événements via le contexte (filtrage automatique par résidence dans le contexte)
-  const events = getPublications('events');
+  // Récupération des événements normalisés
+  const events = getNormalizedPublications('events', currentResidenceId);
 
   // NOUVEAU : Publier un brouillon
   const handlePublishDraft = async (event) => {
@@ -95,12 +92,13 @@ export default function Events() {
     try {
       ensureAuthenticated(editingEvent ? 'modifier un événement' : 'créer un nouvel événement');
       
-      if (!eventData.targetResidences || eventData.targetResidences.length === 0) {
+      const residenceIds = eventData.residenceIds || eventData.targetResidences || [];
+      if (!residenceIds || residenceIds.length === 0) {
         throw new Error('Aucune résidence sélectionnée pour la publication');
       }
 
       const authorizedIds = authorizedResidences?.map(r => r.residenceId) || [];
-      const unauthorizedResidences = eventData.targetResidences.filter(id => !authorizedIds.includes(id));
+      const unauthorizedResidences = residenceIds.filter(id => !authorizedIds.includes(id));
       
       if (unauthorizedResidences.length > 0) {
         console.error('🚨 SÉCURITÉ: Tentative de publication dans des résidences non autorisées:', unauthorizedResidences);
@@ -118,7 +116,7 @@ export default function Events() {
       } else {
         // Création d'un nouvel événement (logique existante)
         await addPublication('events', eventData);
-        const residenceCount = eventData.targetResidences.length;
+        const residenceCount = residenceIds.length;
         setNotification({
           open: true,
           message: `Événement créé avec succès et publié dans ${residenceCount} résidence${residenceCount > 1 ? 's' : ''} !`,
@@ -183,7 +181,8 @@ export default function Events() {
   };
 
   const handleRowClick = (event) => {
-    handleEditEvent(event);
+    // Naviguer vers la page de détail au lieu d'ouvrir le modal d'édition
+    navigate(`/events/${event.id}`);
   };
 
   return (
@@ -241,12 +240,26 @@ export default function Events() {
           { name: 'location', label: 'Lieu', type: 'text', required: true },
           { name: 'maxParticipants', label: 'Nombre max de participants', type: 'number' },
           { 
+            name: 'pinned', 
+            label: 'Épingler cet événement', 
+            type: 'checkbox',
+            required: false,
+            helperText: 'L\'événement apparaîtra en haut de la liste dans l\'app mobile'
+          },
+          { 
             name: 'imageUrl', 
             label: "Image de l'événement", 
             type: 'image', 
             required: false,
             placeholder: 'https://exemple.com/image.jpg',
             helperText: 'Chargez un fichier ou collez une URL d\'image'
+          },
+          { 
+            name: 'publicationDate', 
+            label: 'Date de publication', 
+            type: 'datetime', 
+            required: true,
+            helperText: 'Date et heure de publication de l\'événement'
           }
         ]}
         initialValues={editingEvent || {}}

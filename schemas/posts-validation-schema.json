@@ -14,33 +14,31 @@
       "max_length": 200,
       "description": "Titre du post"
     },
-    "message": {
+    "messageHtml": {
       "type": "text",
       "format": "html/text",
       "required": true,
       "max_length": 5000,
       "description": "Contenu HTML du message (WYSIWYG)"
     },
-    "imageUrl": {
-      "type": "string",
+    "imagesBase64": {
+      "type": "array",
+      "item_type": "string",
       "required": false,
       "nullable": true,
-      "format": "url",
-      "description": "URL de l'image (optionnel)"
+      "description": "Images en base64 (optionnel)"
     },
-    "category": {
-      "type": "enum",
+    "categoryId": {
+      "type": "string",
       "required": true,
-      "values": ["info", "event", "urgent"],
-      "default": "info",
-      "description": "Catégorie du post"
+      "description": "ID de la catégorie du post"
     },
-    "targetResidences": {
+    "residenceIds": {
       "type": "array",
-      "item_type": "uuid",
+      "item_type": "string",
       "required": true,
       "min_items": 1,
-      "description": "Liste des résidences cibles"
+      "description": "Liste des IDs des résidences cibles"
     },
     "targetResidenceNames": {
       "type": "array",
@@ -51,14 +49,14 @@
     "status": {
       "type": "enum",
       "required": true,
-      "values": ["Brouillon", "Publié", "Programmé", "Archivé"],
+      "values": ["draft", "published"],
       "description": "Statut de publication"
     },
-    "publicationDate": {
+    "publishAt": {
       "type": "datetime",
       "required": true,
-      "format": "ISO8601",
-      "description": "Date de publication"
+      "format": "yyyy-MM-dd HH:mm:ss",
+      "description": "Date et heure de publication"
     },
     "publishLater": {
       "type": "boolean",
