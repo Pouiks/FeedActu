@@ -319,7 +319,10 @@ function AuthProviderInternal({ children }) {
         if (mockResidences.length === 0) {
           // Si pas de mapping, créer des résidences fictives
           mockResidences = [
-            { residenceId: userData.residenceId, residenceName: 'Résidence Test Mock' }
+            { residenceId: userData.residenceId, residenceName: 'Résidence Test Mock' },
+            { residenceId: userData.residenceId, residenceName: 'Résidence Test Mock' },
+            { residenceId: userData.residenceId, residenceName: 'Résidence Test Mock' },
+            { residenceId: userData.residenceId, residenceName: 'Résidence Test Mock' },
           ];
         }
         console.log('🏠 Résidences mock récupérées:', mockResidences);
